@@ -1,0 +1,6 @@
+import { describe,expect,it } from 'vitest'
+import { layoutSheet } from '../lib/geometry'
+import type { SheetSettings,PhotoSize } from '../types'
+const photo:PhotoSize={id:'2x2',label:'2 × 2',widthMm:50.8,heightMm:50.8}
+const settings:SheetSettings={paper:{id:'a4',label:'A4',widthMm:210,heightMm:297},orientation:'portrait',quantity:30,marginMm:10,gapMm:3,cuttingGuides:true}
+describe('sheet layout',()=>{it('keeps exact placement and A4 dimensions',()=>{const l=layoutSheet(settings,photo);expect(l.items[0].width).toBe(50.8);expect(l.items[0].height).toBe(50.8);expect(l.pageWidth).toBe(210);expect(l.pageHeight).toBe(297)});it('stays inside printable bounds',()=>{const l=layoutSheet(settings,photo);for(const i of l.items){expect(i.x).toBeGreaterThanOrEqual(10);expect(i.y).toBeGreaterThanOrEqual(10);expect(i.x+i.width).toBeLessThanOrEqual(200);expect(i.y+i.height).toBeLessThanOrEqual(287)}});it('calculates multiple pages without shrinking',()=>{const l=layoutSheet(settings,photo);expect(l.perPage).toBe(15);expect(l.pages).toBe(2);expect(l.items).toHaveLength(30)});it('rotates page dimensions',()=>{const l=layoutSheet({...settings,orientation:'landscape'},photo);expect(l.pageWidth).toBe(297);expect(l.pageHeight).toBe(210)})})
