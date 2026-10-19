@@ -19,7 +19,7 @@ const SIZES:PhotoSize[]=[
  {id:'prc-online',label:'PRC online · 2 × 2 inches',widthMm:50.8,heightMm:50.8},
  {id:'1-5x1-5',label:'1½ × 1½ inches',widthMm:38.1,heightMm:38.1},
  {id:'1x1-5',label:'1 × 1½ inches',widthMm:25.4,heightMm:38.1},
- {id:'asa',label:'ASA · 1.4 × 3 inches',widthMm:35.56,heightMm:76.2},
+ {id:'asa',label:'ASA · 3 × 1.4 inches (landscape)',widthMm:76.2,heightMm:35.56},
 ]
 const initialTransform:Transform={x:0,y:0,zoom:1,rotation:0,brightness:100,contrast:100,borderStyle:'none'}
 
