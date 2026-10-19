@@ -78,4 +78,6 @@
 .preview-zoom-toolbar .button { min-height: 44px; font-size: 12px; }
 .sheet-zoom-viewport { width: 100%; container-type: inline-size; overflow: auto; height: min(470px, 55dvh); min-height: 180px; border-radius: 6px; overscroll-behavior: contain; }
 .sheet-zoom-viewport .sheet { height: auto !important; max-width: none; max-height: none; margin: 12px auto; }
+.sheet-zoom-viewport.is-zoomed { cursor: grab; touch-action: none; user-select: none; }
+.sheet-zoom-viewport[data-dragging='true'] { cursor: grabbing; }
 @media (max-width: 760px) { .sheet-zoom-viewport { height: min(440px, 55dvh); } .preview-zoom-toolbar { gap: 2px; } }

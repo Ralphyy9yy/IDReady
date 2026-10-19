@@ -1,5 +1,5 @@
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { layoutSheet } from '../../lib/geometry'
 import { mmToPx } from '../../lib/units'
 import { PAPERS } from '../../lib/units/papers'
@@ -18,6 +18,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
+  const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(null)
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
   const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) => setSettings(s => ({ ...s, [key]: value }))
@@ -62,7 +63,27 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
           <button className="icon-button" aria-label="Zoom in print preview" disabled={previewZoom >= 300} onClick={() => setPreviewZoom(value => Math.min(300, value + 25))}><ZoomIn /></button>
           <button className="button quiet" onClick={() => setPreviewZoom(100)}>Fit page</button>
         </div>
-        <div className="sheet-zoom-viewport" tabIndex={0} role="region" aria-label="Sheet preview. Scroll to inspect the enlarged page.">
+        <div className={`sheet-zoom-viewport ${previewZoom > 100 ? 'is-zoomed' : ''}`} tabIndex={0} role="region" aria-label="Sheet preview. When zoomed, drag or scroll to inspect the page."
+          onPointerDown={event => {
+            if (previewZoom <= 100 || !event.isPrimary || event.button !== 0) return
+            const viewport = event.currentTarget
+            pan.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop }
+            viewport.setPointerCapture(event.pointerId)
+            viewport.dataset.dragging = 'true'
+          }}
+          onPointerMove={event => {
+            const start = pan.current
+            if (!start || start.pointer !== event.pointerId) return
+            event.currentTarget.scrollLeft = start.left - (event.clientX - start.x)
+            event.currentTarget.scrollTop = start.top - (event.clientY - start.y)
+          }}
+          onPointerUp={event => {
+            pan.current = null
+            delete event.currentTarget.dataset.dragging
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+          }}
+          onPointerCancel={event => { pan.current = null; delete event.currentTarget.dataset.dragging }}
+          onLostPointerCapture={event => { pan.current = null; delete event.currentTarget.dataset.dragging }}>
         <div className="sheet" style={{ aspectRatio: `${layout.pageWidth}/${layout.pageHeight}`, width: `calc(min(100cqw - 24px, min(440px, 55dvh - 24px) * ${layout.pageWidth / layout.pageHeight}) * ${previewZoom / 100})` }}>
           {layout.items.filter(i => i.page === 0).map((i, n) => <div key={n} className="sheet-photo" style={{ left: `${i.x / layout.pageWidth * 100}%`, top: `${i.y / layout.pageHeight * 100}%`, width: `${i.width / layout.pageWidth * 100}%`, height: `${i.height / layout.pageHeight * 100}%`, backgroundImage: `url(${previewUrl})` }} />)}
         </div>
