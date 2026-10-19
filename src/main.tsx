@@ -6,5 +6,6 @@ import './styles/app.css'
 import './styles/polish.css'
 import './styles/export.css'
 import './styles/camera.css'
+import './styles/mobile-home.css'
 registerSW({ immediate: true })
 createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>)

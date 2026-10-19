@@ -1,0 +1,36 @@
+.mobile-upload-label, .mobile-photo-tips { display: none; }
+@media (max-width: 760px) {
+  .app-header { height: 68px; gap: 8px; }
+  .offline-pill { width: auto; height: 44px; padding: 0 9px; font-size: 11px; gap: 5px; white-space: nowrap; }
+  .brand .brand-name { font-size: 23px; }
+  .brand .brand-caption { font-size: 6px; letter-spacing: .85px; }
+  .brand .brand-emblem { width: 32px; height: 35px; }
+  .header-actions { gap: 4px; flex-shrink: 0; }
+  .wordmark.brand { padding-right: 0; gap: 6px; }
+  .steps { padding: 8px 8px 0; gap: 8px; }
+  main:has(> .start) { padding-top: 12px; }
+  .start { padding-top: 0; margin-top: 0; }
+  .start-copy h1 { font-size: clamp(28px, 6vw, 34px); line-height: 1.15; letter-spacing: -1.15px; margin: 12px 0; max-width: 420px; }
+  .start-copy > p { font-size: 14px; line-height: 1.6; margin: 10px 0; }
+  .start-actions { margin-top: 18px; }
+  .start-actions .button { min-height: 48px; font-size: 13px; }
+  .start-copy > .privacy { margin: 14px 0 0; font-size: 12px !important; }
+  .start .drop-zone { height: auto; min-height: 88px; margin-top: 18px; padding: 16px 18px; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; align-content: center; justify-items: start; text-align: left; border-radius: 10px; }
+  .drop-zone::before { display: none; }
+  .start .drop-zone > svg { grid-column: 1; grid-row: 1 / 3; width: 40px; height: 40px; padding: 9px; border-radius: 9px; margin: 0; }
+  .drop-zone .desktop-upload-label { display: none; }
+  .drop-zone .mobile-upload-label { display: block; font-size: 14px; }
+  .drop-zone > span { grid-column: 2; font-size: 11px; }
+  .desktop-photo-tips { display: none; }
+  .mobile-photo-tips { display: block; margin-top: 18px; padding-top: 6px; }
+  .mobile-photo-tips summary { min-height: 44px; padding: 10px 0; font-size: 13px; font-weight: 600; color: #435166; cursor: pointer; }
+  .mobile-photo-tips ul { padding: 8px 0 6px; }
+}
+@media (max-width: 380px) {
+  .app-header { padding-inline: 10px; gap: 4px; }
+  .brand .brand-name { font-size: 20px; }
+  .brand .brand-caption { display: none; }
+  .brand .brand-emblem { width: 27px; }
+  .offline-pill { font-size: 10px; padding-inline: 7px; }
+  .steps { gap: 3px; }
+}
