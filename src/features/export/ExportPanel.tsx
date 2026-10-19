@@ -1,4 +1,4 @@
-import { Download, FileImage, FileText, Printer } from 'lucide-react'
+import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { layoutSheet } from '../../lib/geometry'
 import { mmToPx } from '../../lib/units'
@@ -17,6 +17,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const [settings, setSettings] = useState<SheetSettings>({ paper: PAPERS[0], orientation: 'portrait', quantity: 8, marginMm: 10, gapMm: 3, cuttingGuides: true })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [previewZoom, setPreviewZoom] = useState(100)
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
   const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) => setSettings(s => ({ ...s, [key]: value }))
@@ -55,8 +56,16 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   return <div className="export-layout">
     <div className="export-grid">
       <section className="sheet-area export-preview" aria-label="Printable sheet preview">
-        <div className="sheet" style={{ aspectRatio: `${layout.pageWidth}/${layout.pageHeight}`, width: `min(100%, ${440 * layout.pageWidth / layout.pageHeight}px)` }}>
+        <div className="preview-zoom-toolbar" role="group" aria-label="Print preview zoom">
+          <button className="icon-button" aria-label="Zoom out print preview" disabled={previewZoom <= 100} onClick={() => setPreviewZoom(value => Math.max(100, value - 25))}><ZoomOut /></button>
+          <output aria-live="polite">{previewZoom}%</output>
+          <button className="icon-button" aria-label="Zoom in print preview" disabled={previewZoom >= 300} onClick={() => setPreviewZoom(value => Math.min(300, value + 25))}><ZoomIn /></button>
+          <button className="button quiet" onClick={() => setPreviewZoom(100)}>Fit page</button>
+        </div>
+        <div className="sheet-zoom-viewport" tabIndex={0} role="region" aria-label="Sheet preview. Scroll to inspect the enlarged page.">
+        <div className="sheet" style={{ aspectRatio: `${layout.pageWidth}/${layout.pageHeight}`, width: `calc(min(100cqw - 24px, min(440px, 55dvh - 24px) * ${layout.pageWidth / layout.pageHeight}) * ${previewZoom / 100})` }}>
           {layout.items.filter(i => i.page === 0).map((i, n) => <div key={n} className="sheet-photo" style={{ left: `${i.x / layout.pageWidth * 100}%`, top: `${i.y / layout.pageHeight * 100}%`, width: `${i.width / layout.pageWidth * 100}%`, height: `${i.height / layout.pageHeight * 100}%`, backgroundImage: `url(${previewUrl})` }} />)}
+        </div>
         </div>
         <p className="preview-caption">Page {layout.pages ? 1 : 0} of {layout.pages} · {layout.perPage} fit per page</p>
       </section>
