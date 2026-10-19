@@ -15,7 +15,15 @@ export default defineConfig({
       globPatterns: ['**/*.{js,css,html,svg,png,webp}'],
       maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
       cleanupOutdatedCaches: true,
-      navigateFallback: '/index.html'
+      navigateFallback: '/index.html',
+      runtimeCaching: [{
+        urlPattern: /\/(?:models|wasm)\/[^/?]+(?:\?.*)?$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'idready-ai-v1',
+          cacheableResponse: { statuses: [200] }
+        }
+      }]
     }
   })],
   worker: { format: 'es' }
