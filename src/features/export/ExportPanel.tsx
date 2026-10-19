@@ -1,5 +1,5 @@
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { layoutSheet } from '../../lib/geometry'
 import { mmToPx } from '../../lib/units'
 import { PAPERS } from '../../lib/units/papers'
@@ -97,11 +97,11 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
             <label>Orientation<select value={settings.orientation} onChange={e => set('orientation', e.target.value as 'portrait' | 'landscape')}><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
           </div>
           <div className="field-row">
-            <label>Copies<input type="number" min="1" max="100" value={settings.quantity} onChange={e => set('quantity', Math.min(100, Math.max(1, Number(e.target.value) || 1)))} /></label>
-            <label>Gap (mm)<input type="number" min="0" max="20" value={settings.gapMm} onChange={e => set('gapMm', Math.min(20, Math.max(0, Number(e.target.value) || 0)))} /></label>
+            <label>Copies<NumberField min={1} max={100} step={1} value={settings.quantity} onCommit={value => set('quantity', value)} /></label>
+            <label>Gap (mm)<NumberField min={0} max={20} step={0.1} value={settings.gapMm} onCommit={value => set('gapMm', value)} /></label>
           </div>
           <details className="export-spacing"><summary>Margins & cutting guides</summary><div className="details-body">
-            <label>Safe margin (mm)<input type="number" min="3" max="30" value={settings.marginMm} onChange={e => set('marginMm', Math.min(30, Math.max(3, Number(e.target.value) || 3)))} /></label>
+            <label>Safe margin (mm)<NumberField min={3} max={30} step={0.1} value={settings.marginMm} onCommit={value => set('marginMm', value)} /></label>
             <label className="check"><input type="checkbox" checked={settings.cuttingGuides} onChange={e => set('cuttingGuides', e.target.checked)} />Add cutting guides outside photos</label>
           </div></details>
           <fieldset className="border-picker"><legend>Photo border</legend><div className="border-options">
@@ -124,6 +124,23 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
       <button className="button primary" disabled={busy || !layout.items.length} onClick={() => void pdf()}><FileText />{busy ? 'Preparing download…' : 'Download PDF'}</button>
     </div>
   </div>
+}
+
+function NumberField({ value, min, max, step, onCommit }: { value: number; min: number; max: number; step: number; onCommit: (value: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => setText(String(value)), [value])
+  const commit = () => {
+    const parsed = Number(text)
+    const bounded = text.trim() && Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : value
+    const next = step === 1 ? Math.round(bounded) : Math.round(bounded * 10) / 10
+    setText(String(next))
+    onCommit(next)
+  }
+  return <input type="number" min={min} max={max} step={step} value={text} onChange={event => {
+    setText(event.target.value)
+    const parsed = event.target.valueAsNumber
+    if (Number.isFinite(parsed) && parsed >= min && parsed <= max && (step !== 1 || Number.isInteger(parsed))) onCommit(parsed)
+  }} onBlur={commit} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} />
 }
 
 function save(blob: Blob, name: string) {
