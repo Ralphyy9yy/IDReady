@@ -28,8 +28,36 @@ export default function App(){const input=useRef<HTMLInputElement>(null);const [
  const load=async(blob:Blob)=>{setError('');try{const bitmap=await decodeImage(blob);if(bitmap.width*bitmap.height>40_000_000){bitmap.close();throw new Error('This image is too large to process safely. Choose one under 40 megapixels.')}original?.close();if(image!==original)image?.close();setSourceBlob(blob);setOriginal(bitmap);setImage(bitmap);setProcessedBlob(undefined);setTransform(initialTransform);setStage('edit');setStatus('Photo loaded. You can adjust the crop.');try{const {detectFace}=await import('./services/ai/vision');const faces=await detectFace(bitmap);if(faces.length===1){const face=faces[0];const cx=face.originX+face.width/2, cy=face.originY+face.height/2;setTransform(t=>({...t,x:(.5-cx/bitmap.width)*.35,y:(.38-cy/bitmap.height)*.35}));setStatus('One face found; a starting position was suggested.')}else if(faces.length===0)setStatus('No face detected. Position the photo manually.');else setStatus('Multiple faces detected. Position the intended person manually.')}catch{setStatus('Automatic face positioning is unavailable. You can position the photo manually.')}}catch(e){setError(e instanceof Error?e.message:'Could not open this image.')}}
  const choose=async(file?:File)=>{if(!file)return;try{await validateImage(file);await load(file)}catch(e){setError(e instanceof Error?e.message:'Invalid image.')}}
  const remove=async()=>{if(!original)return;setProcessing(true);setBgError('');setShowOriginal(false);try{const {removeBackground}=await import('./services/ai/vision');const blob=await removeBackground(original);const result=await decodeImage(blob);if(image!==original)image?.close();setImage(result);setProcessedBlob(blob);setStatus('Background removed and replaced with white. Review the edges before export.')}catch(e){setBgError(`${e instanceof Error?e.message:'Background removal failed.'} Your original is safe; retry or continue without removal.`)}finally{setProcessing(false)}}
- const resume=async()=>{const d=await getDraft();if(d){setSize(d.size);setTransform(d.transform);await load(d.processed??d.photo);setDraft(true)}}
- const save=async()=>{if(!sourceBlob)return;await saveDraft({id:'current',createdAt:Date.now(),photo:sourceBlob,size,transform,processed:processedBlob});setDraft(true);setStatus('Draft saved only on this device.')}
+ const resume=async()=>{
+   let restoredOriginal:ImageBitmap|undefined
+   let restoredProcessed:ImageBitmap|undefined
+   try {
+     const d=await getDraft()
+     if(!d){setDraft(false);setStatus('No saved draft was found.');return}
+     restoredOriginal=await decodeImage(d.photo)
+     if(d.processed)restoredProcessed=await decodeImage(d.processed)
+     // Restoring bypasses import defaults and automatic face positioning.
+     original?.close()
+     if(image!==original)image?.close()
+     setSourceBlob(d.photo)
+     setOriginal(restoredOriginal)
+     setImage(restoredProcessed??restoredOriginal)
+     setProcessedBlob(d.processed)
+     setSize(d.size)
+     setTransform({...initialTransform,...d.transform})
+     setShowOriginal(false)
+     setBgError('')
+     setError('')
+     setDraft(true)
+     setStage('edit')
+     setStatus('Draft restored with your saved photo and adjustments.')
+   } catch {
+     restoredOriginal?.close()
+     restoredProcessed?.close()
+     setError('Could not restore the saved draft. Please retry. Your saved draft has not been deleted.')
+   }
+ }
+ const save=async()=>{if(!sourceBlob)return;try{await saveDraft({id:'current',createdAt:Date.now(),photo:sourceBlob,size,transform,processed:processedBlob});setDraft(true);setStatus('Draft saved only on this device.')}catch{setStatus('Could not save the draft. Browser storage may be full or unavailable. Your current photo is still open.')}}
  const next=()=>{if(stage==='edit')setStage('export')};const back=()=>setStage(stage==='export'?'edit':'add')
  return <><Background/><header className="app-header"><Brand onClick={()=>{setStage('add');window.scrollTo({top:0})}}/><div className="header-actions"><button className={`offline-pill ${offlineReady?'ready':''}`} onClick={()=>setSettings(true)}><span>{offlineReady?<Check/>:<CloudOff/>}</span>{offlineReady?'Offline ready':'Offline setup'}</button><button className="icon-button" onClick={()=>setSettings(true)} aria-label="Settings and help"><Settings/></button></div></header>
  <nav className="steps" aria-label="Progress">{(['add','edit','export'] as Stage[]).map((s,i)=><button key={s} className={stage===s?'active':sourceBlob&&(['add','edit'].includes(s))?'done':''} onClick={()=>{if(s==='add'||sourceBlob)setStage(s)}} disabled={s!=='add'&&!sourceBlob}><span>{i+1}</span>{s==='add'?'Add photo':s==='edit'?'Edit photo':'Export'}</button>)}</nav>
