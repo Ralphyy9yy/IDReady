@@ -1,0 +1,12 @@
+.camera-dialog { display: flex; flex-direction: column; height: min(780px, calc(100dvh - 32px)); max-height: calc(100dvh - 32px); overflow: auto; }
+.camera-dialog header { flex-shrink: 0; padding: 16px 20px; }
+.camera-dialog .camera-view { flex: 1 1 auto; min-height: 120px; aspect-ratio: auto; }
+.camera-view video[hidden] { display: none; }
+.camera-starting { position: absolute; inset: 0; display: grid; place-items: center; color: white; background: #111a; font-size: 14px; }
+.camera-dialog .camera-options { flex-shrink: 0; padding: 8px 16px; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.camera-options > label { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+.camera-dialog footer { flex-shrink: 0; padding: 8px 16px 16px; }
+.camera-error { flex-shrink: 0; margin: 10px 12px 0; }
+.camera-error p { margin: 0 0 8px; font-size: 13px; }
+.camera-error .button-pair { flex-wrap: wrap; }
+@media (max-width: 480px) { .camera-dialog header p { font-size: 12px; } .camera-dialog header { padding: 12px 14px; } .camera-dialog .camera-options { padding-block: 2px; } }
