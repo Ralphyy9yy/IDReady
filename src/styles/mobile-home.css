@@ -9,13 +9,6 @@
   .wordmark.brand { padding-right: 0; gap: 6px; }
   .steps { padding: 8px 8px 0; gap: 8px; }
   main:has(> .start) { padding-top: 12px; }
-  main:has(> .start) {
-    min-height: calc(100dvh - 120px);
-    display: flex;
-    align-items: center;
-    padding-bottom: 24px;
-  }
-  main > .start { width: 100%; }
   .start { padding-top: 0; margin-top: 0; }
   .start-copy h1 { font-size: clamp(28px, 6vw, 34px); line-height: 1.15; letter-spacing: -1.15px; margin: 12px 0; max-width: 420px; }
   .start-copy > p { font-size: 14px; line-height: 1.6; margin: 10px 0; }
