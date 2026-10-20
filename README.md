@@ -41,7 +41,7 @@ Screenshots captured from the running application. Some controls have changed si
 - Optional face detection to suggest an initial crop.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.
-- Optional digital name tag with a full name, second line, text-size presets, and alignment. A white strip is reserved inside the photo; long text shrinks to fit.
+- Optional digital name tag with a full name, second line, text-size presets, and alignment. A white strip overlays the bottom of the photo without changing its crop or position; long text shrinks to fit.
 - Paper presets, orientation, margins, gaps, cutting guides, and multi-page PDF composition.
 - Print-preview zoom and mouse/touch panning.
 - PNG/JPEG downloads and PDF export with physical dimensions expressed in millimetres.
