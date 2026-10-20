@@ -41,6 +41,7 @@ Screenshots captured from the running application. Some controls have changed si
 - Optional face detection to suggest an initial crop.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.
+- Optional digital name tag with a full name, second line, text-size presets, and alignment. A white strip is reserved inside the photo; long text shrinks to fit.
 - Paper presets, orientation, margins, gaps, cutting guides, and multi-page PDF composition.
 - Print-preview zoom and mouse/touch panning.
 - PNG/JPEG downloads and PDF export with physical dimensions expressed in millimetres.
@@ -152,7 +153,7 @@ The ASA preset uses dimensions supplied for this project; it is not independentl
 
 Paper options are A4, A5, A6, Letter, Legal, 3R, 4R, 5R, 6R, and 8 × 10 inches. Both orientations are supported; exact values live in [papers.ts](src/lib/units/papers.ts).
 
-Presets provide dimensions, not official acceptance guarantees. CSC requirements include a physical name tag; the app does not generate one. DFA passport photos are captured during the appointment. Follow the receiving agency's current instructions.
+Presets provide dimensions, not official acceptance guarantees. CSC requirements include a physical hand-held name tag and handwritten signature; the optional digital name tag does not replace them. DFA passport photos are captured during the appointment. Follow the receiving agency's current instructions.
 
 ## Offline operation
 

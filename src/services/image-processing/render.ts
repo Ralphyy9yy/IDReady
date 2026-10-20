@@ -8,14 +8,36 @@ export async function decodeImage(source: Blob): Promise<ImageBitmap> {
 }
 
 export function drawPhoto(ctx: CanvasRenderingContext2D, image: CanvasImageSource, sourceW: number, sourceH: number, width: number, height: number, t: Transform) {
+  const tag = t.nameTag
+  const tagEnabled = tag?.enabled && (tag.name.trim() || tag.secondLine.trim())
+  const portraitHeight = tagEnabled ? height * .82 : height
   ctx.save()
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height)
+  ctx.beginPath(); ctx.rect(0, 0, width, portraitHeight); ctx.clip()
   ctx.filter = `brightness(${t.brightness}%) contrast(${t.contrast}%)`
-  ctx.translate(width / 2 + t.x * width, height / 2 + t.y * height)
+  ctx.translate(width / 2 + t.x * width, portraitHeight / 2 + t.y * portraitHeight)
   ctx.rotate(t.rotation * Math.PI / 180)
-  const scale = containScale(sourceW, sourceH, width, height) * t.zoom
+  const scale = containScale(sourceW, sourceH, width, portraitHeight) * t.zoom
   ctx.drawImage(image, -sourceW * scale / 2, -sourceH * scale / 2, sourceW * scale, sourceH * scale)
   ctx.restore()
+  if (tagEnabled && tag) {
+    ctx.save()
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, portraitHeight, width, height - portraitHeight)
+    ctx.fillStyle = '#17212f'; ctx.textAlign = tag.alignment; ctx.textBaseline = 'middle'
+    const padding = width * .05
+    const x = tag.alignment === 'left' ? padding : tag.alignment === 'right' ? width - padding : width / 2
+    const lines = [tag.name.trim(), tag.secondLine.trim()].filter(Boolean)
+    const bandHeight = height - portraitHeight
+    lines.forEach((line, index) => {
+      let fontSize = Math.min(width * tag.fontSize / 100, bandHeight / (lines.length + .7))
+      ctx.font = `600 ${fontSize}px Arial, sans-serif`
+      while (ctx.measureText(line).width > width - padding * 2 && fontSize > 1) {
+        fontSize *= .95; ctx.font = `600 ${fontSize}px Arial, sans-serif`
+      }
+      ctx.fillText(line, x, portraitHeight + bandHeight * (index + 1) / (lines.length + 1))
+    })
+    ctx.restore()
+  }
   drawBorder(ctx, width, height, t.borderStyle ?? 'none')
 }
 
