@@ -1,0 +1,9 @@
+.removal-overlay { position: absolute; inset: 0; z-index: 3; overflow: hidden; background: #17212f40; display: grid; place-items: center; cursor: progress; }
+.removal-scan { position: absolute; inset: 0; border-bottom: 3px solid #a7f3d0; transform: translateY(-100%); animation: removal-scan 2.8s ease-in-out infinite alternate; will-change: transform; pointer-events: none; }
+.removal-label { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 20px; max-width: 95%; background: #fff; color: #17212f; border-radius: 10px; box-shadow: 0 4px 20px #17212f25; text-align: center; }
+.removal-label strong { font-size: 13px; }
+.removal-label > span:last-child { font-size: 11px; color: #596579; }
+.removal-spinner { width: 26px; height: 26px; border: 3px solid #dbe5fa; border-top-color: #2458db; border-radius: 50%; animation: removal-spin .9s linear infinite; will-change: transform; }
+@keyframes removal-spin { to { transform: rotate(360deg); } }
+@keyframes removal-scan { to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .removal-scan { display: none; } .removal-spinner { animation: none; } }
