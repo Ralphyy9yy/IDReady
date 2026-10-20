@@ -10,7 +10,6 @@ export async function decodeImage(source: Blob): Promise<ImageBitmap> {
 export function drawPhoto(ctx: CanvasRenderingContext2D, image: CanvasImageSource, sourceW: number, sourceH: number, width: number, height: number, t: Transform) {
   const tag = t.nameTag
   const tagEnabled = tag?.enabled && (tag.name.trim() || tag.secondLine.trim())
-  const tagTop = height * .82
   ctx.save()
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height)
   ctx.beginPath(); ctx.rect(0, 0, width, height); ctx.clip()
@@ -22,19 +21,25 @@ export function drawPhoto(ctx: CanvasRenderingContext2D, image: CanvasImageSourc
   ctx.restore()
   if (tagEnabled && tag) {
     ctx.save()
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, tagTop, width, height - tagTop)
-    ctx.fillStyle = '#17212f'; ctx.textAlign = tag.alignment; ctx.textBaseline = 'middle'
-    const padding = width * .05
-    const x = tag.alignment === 'left' ? padding : tag.alignment === 'right' ? width - padding : width / 2
     const lines = [tag.name.trim(), tag.secondLine.trim()].filter(Boolean)
-    const bandHeight = height - tagTop
-    lines.forEach((line, index) => {
-      let fontSize = Math.min(width * tag.fontSize / 100, bandHeight / (lines.length + .7))
+    const padding = width * .025
+    const margin = width * .04
+    let fontSize = Math.min(width * tag.fontSize / 100, height * .09 / lines.length)
+    ctx.font = `600 ${fontSize}px Arial, sans-serif`
+    while (Math.max(...lines.map(line => ctx.measureText(line).width)) > width - 2 * (margin + padding) && fontSize > 1) {
+      fontSize *= .95
       ctx.font = `600 ${fontSize}px Arial, sans-serif`
-      while (ctx.measureText(line).width > width - padding * 2 && fontSize > 1) {
-        fontSize *= .95; ctx.font = `600 ${fontSize}px Arial, sans-serif`
-      }
-      ctx.fillText(line, x, tagTop + bandHeight * (index + 1) / (lines.length + 1))
+    }
+    const boxWidth = Math.max(...lines.map(line => ctx.measureText(line).width)) + padding * 2
+    const lineHeight = fontSize * 1.25
+    const boxHeight = lineHeight * lines.length + fontSize * .6
+    const left = tag.alignment === 'left' ? margin : tag.alignment === 'right' ? width - margin - boxWidth : (width - boxWidth) / 2
+    const top = height - boxHeight - height * .025
+    ctx.fillStyle = '#fff'; ctx.fillRect(left, top, boxWidth, boxHeight)
+    ctx.fillStyle = '#17212f'; ctx.textAlign = tag.alignment; ctx.textBaseline = 'middle'
+    const x = tag.alignment === 'left' ? left + padding : tag.alignment === 'right' ? left + boxWidth - padding : left + boxWidth / 2
+    lines.forEach((line, index) => {
+      ctx.fillText(line, x, top + fontSize * .3 + lineHeight * (index + .5))
     })
     ctx.restore()
   }
