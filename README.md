@@ -23,12 +23,6 @@ Photo processing runs in the browser. No account, database, backend, or paid API
 
 ## Preview
 
-[![Watch the narrated IDReady demo](docs/demo/poster.jpg)](docs/demo/idready-demo.mp4)
-
-**[Watch or download the demo video](docs/demo/idready-demo.mp4)** · 66 seconds · English narration · original instrumental soundtrack · [Subtitles](docs/demo/captions.vtt)
-
-The video combines a real application screenshot with labeled motion-graphic examples of the editing and print workflow.
-
 Screenshots captured from the running application. Some controls have changed since these images were taken; animated backgrounds appear as still images.
 
 ### Desktop
