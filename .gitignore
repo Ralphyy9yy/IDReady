@@ -7,6 +7,8 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .demo-browser/
+.demo-tools/
+docs/demo/work/
 .codex/
 .agents/
 .aws/
