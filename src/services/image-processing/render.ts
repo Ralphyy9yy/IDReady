@@ -30,11 +30,11 @@ export function drawPhoto(ctx: CanvasRenderingContext2D, image: CanvasImageSourc
       fontSize *= .95
       ctx.font = `600 ${fontSize}px Arial, sans-serif`
     }
-    const boxWidth = Math.max(...lines.map(line => ctx.measureText(line).width)) + padding * 2
+    const boxWidth = width
     const lineHeight = fontSize * 1.25
     const boxHeight = lineHeight * lines.length + fontSize * .6
-    const left = tag.alignment === 'left' ? margin : tag.alignment === 'right' ? width - margin - boxWidth : (width - boxWidth) / 2
-    const top = height - boxHeight - height * .025
+    const left = 0
+    const top = height - boxHeight
     ctx.fillStyle = '#fff'; ctx.fillRect(left, top, boxWidth, boxHeight)
     ctx.fillStyle = '#17212f'; ctx.textAlign = tag.alignment; ctx.textBaseline = 'middle'
     const x = tag.alignment === 'left' ? left + padding : tag.alignment === 'right' ? left + boxWidth - padding : left + boxWidth / 2
