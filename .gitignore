@@ -10,3 +10,7 @@ dist/
 .codex/
 .agents/
 .aws/
+test-results/
+playwright-report/
+.demo-tools/
+docs/demo/work/

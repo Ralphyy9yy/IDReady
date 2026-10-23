@@ -5,6 +5,16 @@ export const REQUIRED_ASSETS = [
   '/wasm/vision_wasm_nosimd_internal.js', '/wasm/vision_wasm_nosimd_internal.wasm'
 ]
 const CACHE = 'idready-ai-v1'
+export interface OfflineState { app:boolean; runtime:boolean; background:boolean; face:boolean; update:boolean }
+export async function getOfflineState():Promise<OfflineState> {
+  if(!('caches' in window)||!('serviceWorker' in navigator))return {app:false,runtime:false,background:false,face:false,update:false}
+  const cache=await caches.open(CACHE)
+  const exists=await Promise.all(REQUIRED_ASSETS.map(path=>cache.match(path)))
+  const registration=await navigator.serviceWorker.getRegistration()
+  const app=!!navigator.serviceWorker.controller&&!!await caches.match('/index.html',{ignoreSearch:true})
+  const runtime=exists.slice(2).every(Boolean)
+  return {app,runtime,background:!!exists[0]&&runtime,face:!!exists[1]&&runtime,update:!!registration?.waiting}
+}
 export async function checkAiAssets() {
   if (!('caches' in window)) return false
   const cache = await caches.open(CACHE)

@@ -45,7 +45,9 @@ Screenshots captured from the running application. Some controls have changed si
 - Paper presets, orientation, margins, gaps, cutting guides, and multi-page PDF composition.
 - Print-preview zoom and mouse/touch panning.
 - PNG/JPEG downloads and PDF export with physical dimensions expressed in millimetres.
-- One explicitly saved draft per browser, with confirmation before deletion.
+- Multiple named drafts with thumbnails, timestamps, and individual resume/delete actions. Existing single drafts remain readable.
+- ASA pairing from two separate portraits with independent framing.
+- Custom dimensions in millimetres or inches, and manual erase/restore cleanup with stroke undo.
 - PWA app-shell caching and a separate download for offline AI assets.
 
 ### Workflow
@@ -96,6 +98,7 @@ Use the production preview or an HTTPS deployment to test service-worker behavio
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run build` | Type-check and create the production build in `dist/` |
 | `npm run preview` | Serve the production build locally |
+| `npm run test:e2e` | Run production workflow tests in a headless browser |
 
 ## Architecture
 
@@ -133,7 +136,7 @@ public/
   wasm/                        MediaPipe WASM binaries and loaders
 ```
 
-Geometry and image-rendering functions are independent of React. Editor preview and export share the transformation pipeline. AI and PDF modules load dynamically; inference runs on demand rather than on every adjustment.
+Geometry and image-rendering functions are independent of React. Editor preview and export share the transformation pipeline. AI and PDF modules load dynamically. AI jobs run serially in a dedicated classic worker where supported, with CPU/WASM processing on the main thread as a compatibility fallback. Stale processing results are ignored when another photo is loaded.
 
 ## Photo and paper sizes
 
@@ -149,7 +152,9 @@ Photo dimensions below are **width × height**.
 | 1 × 1½ inches | 25.4 × 38.1 mm |
 | ASA landscape | 76.2 × 35.56 mm |
 
-The ASA preset uses dimensions supplied for this project; it is not independently verified as an official requirement. To show two people in one photo, upload an image containing both people. Separate-photo pairing is not implemented.
+The ASA preset uses dimensions supplied for this project; it is not independently verified as an official requirement. Upload a photo containing both people, or select the ASA preset and open the pair builder to combine two separate portraits. Pair creation flattens both portraits into one image; save the result as a draft to retain it.
+
+Custom dimensions accept 10–150 mm per side, or the equivalent in inches. These limits bound raster export memory use.
 
 Paper options are A4, A5, A6, Letter, Legal, 3R, 4R, 5R, 6R, and 8 × 10 inches. Both orientations are supported; exact values live in [papers.ts](src/lib/units/papers.ts).
 
@@ -162,10 +167,10 @@ Presets provide dimensions, not official acceptance guarantees. CSC requirements
 1. Open the deployed HTTPS site while connected.
 2. Allow the app shell to finish caching.
 3. Open **Offline setup** and download the AI assets, approximately 51 MB uncompressed.
-4. Wait for **Offline ready**.
+4. Wait for the application shell, background model, and face model to show as cached.
 5. Disconnect, reload normally, and test background removal and export.
 
-Installation through the browser menu is optional and does not by itself verify that AI assets are available. Every user must complete setup in their own browser on their own device. A cached device does not need the developer's computer to remain on.
+Installation through the browser menu is optional and does not by itself verify that AI assets are available. Settings show readiness separately for the application, background model, and face model, plus any waiting update. Download failures appear with a retry action. Every user must complete setup in their own browser on their own device. A cached device does not need the developer's computer to remain on.
 
 ### Cache implementation
 
@@ -181,7 +186,8 @@ Storage can be cleared or evicted. Recheck offline readiness before relying on t
 
 - Current photos remain in memory unless **Save draft** is selected.
 - A draft contains the original image, processed image when available, selected size, and adjustments, including the border.
-- Only one draft is retained; saving another replaces it.
+- Loading a new photo and saving creates another named draft. Resuming a draft and saving updates that draft after confirmation.
+- Drafts include small thumbnail images and timestamps. They are available on the home screen and through Settings.
 - Drafts have no automatic expiry. They can be deleted through Settings after confirmation.
 - Clearing site data, storage eviction, or closing a private-browsing session can remove drafts and offline assets.
 - Drafts are limited to the current browser and site origin; they are not synchronized across devices.
@@ -238,9 +244,20 @@ npm test
 npm run build
 ```
 
-The current suite has eight tests covering conversions, DPI rounding, crop cover scale, exact photo/page dimensions in layout calculations, printable bounds, landscape orientation, and multi-page quantities.
+The unit suite has 13 tests covering conversions, DPI rounding, crop scale, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, and generated PDF page/placement dimensions.
 
-These tests do not constitute end-to-end validation of PDF files, camera devices, segmentation quality, or offline reload. Verify those separately:
+The Playwright suite runs against the production build with synthetic image fixtures. It exercises multiple drafts and restored edits, custom sizes, ASA pairing, page navigation, name tags, PDF downloads, real offline worker segmentation with no remote requests, cleanup, missing-model failure/retry, simulated camera denial, and mobile horizontal overflow.
+
+Run browser tests after building:
+
+```bash
+npm run build
+# Windows uses installed Microsoft Edge. On other systems:
+# npx playwright install chromium
+npm run test:e2e
+```
+
+Browser tests validate behavior with synthetic inputs; they do not certify portrait edge quality or real printer output. Verify separately:
 
 - Test camera permission denial, retake, switch, and cleanup on a physical phone.
 - Reload the production app offline after downloading assets and run a fresh inference.
@@ -252,11 +269,10 @@ These tests do not constitute end-to-end validation of PDF files, camera devices
 ## Known limitations
 
 - HEIC imports are unsupported. Inputs are limited to 25 MB and 40 megapixels; decoded dimensions are checked after browser decoding.
-- AI inference runs on the main thread and may briefly pause the UI on slower devices.
-- The segmentation model can lose fine hair or translucent edges. Manual erase/restore is not available.
+- Browsers without compatible workers/OffscreenCanvas use main-thread inference and may briefly pause the UI.
+- The segmentation model can lose fine hair or translucent edges. Manual cleanup uses a working copy capped at 1600 px; applying it replaces the processed image at that resolution. Restore reveals original pixels, which can also restore the original background.
 - Face detection is crop assistance, not biometric or document-compliance validation.
-- Sheet preview displays the first page; the PDF contains all calculated pages.
-- Custom photo dimensions, independent pairing of two portraits, and a dedicated Print/Share action are not implemented.
+- Preview supports all generated pages and shares cutting-guide geometry with PDF export. A dedicated Print/Share action is not implemented.
 - Paper and sheet settings are session state and are not included in saved drafts.
 - Browser installation, storage persistence, and offline camera behavior vary by platform.
 

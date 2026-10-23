@@ -7,12 +7,14 @@ let detectorPromise: Promise<FaceDetector> | undefined
 const fileset = () => filesetPromise ??= FilesetResolver.forVisionTasks(wasmRoot)
 
 export const initSegmenter = () => segmenterPromise ??= fileset().then(vision => ImageSegmenter.createFromOptions(vision, {
+  canvas: typeof document === 'undefined' ? new OffscreenCanvas(1, 1) : undefined,
   baseOptions: { modelAssetPath: '/models/selfie_segmenter.tflite', delegate: 'CPU' }, runningMode: 'IMAGE', outputCategoryMask: true, outputConfidenceMasks: false
-}))
+})).catch(error=>{segmenterPromise=undefined;filesetPromise=undefined;throw error})
 
 export const initFaceDetector = () => detectorPromise ??= fileset().then(vision => FaceDetector.createFromOptions(vision, {
+  canvas: typeof document === 'undefined' ? new OffscreenCanvas(1, 1) : undefined,
   baseOptions: { modelAssetPath: '/models/blaze_face_short_range.tflite', delegate: 'CPU' }, runningMode: 'IMAGE', minDetectionConfidence: .55
-}))
+})).catch(error=>{detectorPromise=undefined;filesetPromise=undefined;throw error})
 
 export async function removeBackground(image: ImageBitmap): Promise<Blob> {
   const segmenter = await initSegmenter()

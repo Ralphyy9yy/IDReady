@@ -1,5 +1,6 @@
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { cuttingGuides } from '../../lib/geometry/guides'
 import { layoutSheet } from '../../lib/geometry'
 import { mmToPx } from '../../lib/units'
 import { PAPERS } from '../../lib/units/papers'
@@ -15,6 +16,7 @@ interface Props { image: ImageBitmap; size: PhotoSize; transform: Transform; onT
 
 export function ExportPanel({ image, size, transform, onTransformChange }: Props) {
   const [settings, setSettings] = useState<SheetSettings>({ paper: PAPERS[0], orientation: 'portrait', quantity: 8, marginMm: 10, gapMm: 3, cuttingGuides: true })
+  const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
@@ -24,6 +26,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
   const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) => setSettings(s => ({ ...s, [key]: value }))
+  const currentPage = Math.min(page, Math.max(0, layout.pages - 1))
   const getCanvas = () => renderPhoto(image, image.width, image.height, size, transform)
   async function runExport(action: () => Promise<void>) {
     setBusy(true); setError('')
@@ -35,26 +38,8 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
     save(blob, `IDReady-${size.id}.${type === 'image/png' ? 'png' : 'jpg'}`)
   })
   const pdf = () => runExport(async () => {
-    const { jsPDF } = await import('jspdf')
-    const data = getCanvas().toDataURL('image/jpeg', .95)
-    const doc = new jsPDF({ unit: 'mm', format: [layout.pageWidth, layout.pageHeight], orientation: settings.orientation })
-    for (let p = 0; p < layout.pages; p++) {
-      if (p) doc.addPage([layout.pageWidth, layout.pageHeight], settings.orientation)
-      layout.items.filter(i => i.page === p).forEach(i => {
-        doc.addImage(data, 'JPEG', i.x, i.y, i.width, i.height, undefined, 'FAST')
-        if (settings.cuttingGuides) {
-          doc.setDrawColor(110); doc.setLineWidth(.15)
-          const d = 2
-          doc.line(i.x - d, i.y, i.x - .4, i.y)
-          doc.line(i.x, i.y - d, i.x, i.y - .4)
-          doc.line(i.x + i.width + .4, i.y, i.x + i.width + d, i.y)
-          doc.line(i.x + i.width, i.y - d, i.x + i.width, i.y - .4)
-          doc.line(i.x - d, i.y + i.height, i.x - .4, i.y + i.height)
-          doc.line(i.x, i.y + i.height + .4, i.x, i.y + i.height + d)
-        }
-      })
-    }
-    doc.save(`IDReady-${settings.paper.id}.pdf`)
+    const { createSheetPdf } = await import('../../services/export/pdf')
+    createSheetPdf(getCanvas().toDataURL('image/jpeg',.95),settings,size).save(`IDReady-${settings.paper.id}.pdf`)
   })
   return <div className="export-layout">
     <div className="export-grid">
@@ -87,10 +72,13 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
           onPointerCancel={event => { pan.current = null; delete event.currentTarget.dataset.dragging }}
           onLostPointerCapture={event => { pan.current = null; delete event.currentTarget.dataset.dragging }}>
         <div className="sheet" style={{ aspectRatio: `${layout.pageWidth}/${layout.pageHeight}`, width: `calc(min(100cqw - 24px, min(440px, 55dvh - 24px) * ${layout.pageWidth / layout.pageHeight}) * ${previewZoom / 100})` }}>
-          {layout.items.filter(i => i.page === 0).map((i, n) => <div key={n} className="sheet-photo" style={{ left: `${i.x / layout.pageWidth * 100}%`, top: `${i.y / layout.pageHeight * 100}%`, width: `${i.width / layout.pageWidth * 100}%`, height: `${i.height / layout.pageHeight * 100}%`, backgroundImage: `url(${previewUrl})` }} />)}
+          {layout.items.filter(i => i.page === currentPage).map((i, n) => <div key={n} className="sheet-photo" style={{ left: `${i.x / layout.pageWidth * 100}%`, top: `${i.y / layout.pageHeight * 100}%`, width: `${i.width / layout.pageWidth * 100}%`, height: `${i.height / layout.pageHeight * 100}%`, backgroundImage: `url(${previewUrl})` }} />)}
+          {settings.cuttingGuides&&<svg className="sheet-cut-guides" viewBox={`0 0 ${layout.pageWidth} ${layout.pageHeight}`} aria-hidden="true">
+            {layout.items.filter(item=>item.page===currentPage).flatMap(item=>cuttingGuides(item,settings.gapMm,settings.marginMm)).map((line,index)=><line key={index} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2}/>)}
+          </svg>}
         </div>
         </div>
-        <p className="preview-caption">Page {layout.pages ? 1 : 0} of {layout.pages} · {layout.perPage} fit per page</p>
+        <div className="sheet-page-controls"><button className="button quiet" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Previous</button><p className="preview-caption" aria-live="polite">Page {layout.pages ? currentPage+1 : 0} of {layout.pages} · {layout.perPage} fit per page</p><button className="button quiet" disabled={currentPage>=layout.pages-1} onClick={()=>setPage(currentPage+1)}>Next</button></div>
       </section>
       <aside className="controls export-controls">
         <section><h2>Sheet settings</h2><p>Choose your paper and arrange your copies.</p>
