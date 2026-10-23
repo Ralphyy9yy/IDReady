@@ -30,7 +30,8 @@
 .mobile-primary { display:none; }
 .inline-cleanup { width:100%; display:flex; flex-direction:column; align-items:center; gap:12px; }
 .inline-cleanup .preview-frame { max-width:100%; }
-.inline-cleanup .preview-frame canvas { cursor:crosshair; }
+.inline-cleanup .preview-frame canvas { cursor:none; }
+.brush-cursor { position:absolute; pointer-events:none; z-index:5; border:1px solid #17212f; outline:1px solid white; border-radius:50%; transform:translate(-50%,-50%); }
 .inline-cleanup .cleanup-toolbar { justify-content:center; }
 .inline-brush { display:flex; gap:10px; align-items:center; font-size:12px; width:min(100%,330px); }
 .inline-brush input { flex:1; min-width:0; }

@@ -13,6 +13,7 @@ export function Cleanup({original,processed,size,transform,onApply,onCancel}:{or
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [history,setHistory]=useState<ImageData[]>([])
+  const [cursor,setCursor]=useState<{x:number;y:number;diameter:number}|null>(null)
   function redraw() {
     const view=canvas.current,source=working.current
     if(!view||!source)return
@@ -40,6 +41,13 @@ export function Cleanup({original,processed,size,transform,onApply,onCancel}:{or
     const angle=transform.rotation*Math.PI/180,scale=containScale(source.width,source.height,view.width,view.height)*transform.zoom
     return {x:(Math.cos(angle)*x+Math.sin(angle)*y)/scale+source.width/2,y:(-Math.sin(angle)*x+Math.cos(angle)*y)/scale+source.height/2}
   }
+  function trackCursor(event:React.PointerEvent<HTMLCanvasElement>) {
+    const view=event.currentTarget,source=working.current
+    if(!source||busy)return
+    const rect=view.getBoundingClientRect()
+    const scale=containScale(source.width,source.height,view.width,view.height)*transform.zoom
+    setCursor({x:event.clientX-rect.left,y:event.clientY-rect.top,diameter:brush*scale*rect.width/view.width})
+  }
   function paint(to:{x:number;y:number}) {
     const source=working.current,ctx=source?.getContext('2d')
     if(!source||!ctx)return
@@ -61,14 +69,17 @@ export function Cleanup({original,processed,size,transform,onApply,onCancel}:{or
     <label className="inline-brush">Brush: {brush} px<input type="range" min="5" max="100" value={brush} onChange={e=>setBrush(Number(e.target.value))}/></label>
     <div className="preview-frame" style={{aspectRatio:`${size.widthMm}/${size.heightMm}`}}>
       <canvas ref={canvas} aria-label="Photo preview. Paint to erase or restore background edges."
+        onPointerEnter={event=>{if(event.pointerType!=='touch')trackCursor(event)}}
+        onPointerLeave={()=>setCursor(null)}
         onPointerDown={event=>{
           const source=working.current,ctx=source?.getContext('2d');if(!source||!ctx||busy||!event.isPrimary||event.button!==0)return
           setHistory(old=>[...old.slice(-4),ctx.getImageData(0,0,source.width,source.height)])
-          last.current=undefined;event.currentTarget.setPointerCapture(event.pointerId);paint(point(event))
+          trackCursor(event);last.current=undefined;event.currentTarget.setPointerCapture(event.pointerId);paint(point(event))
         }}
-        onPointerMove={event=>{if(event.currentTarget.hasPointerCapture(event.pointerId))paint(point(event))}}
-        onPointerUp={event=>{last.current=undefined;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId)}}
-        onPointerCancel={()=>last.current=undefined} onLostPointerCapture={()=>last.current=undefined}/>
+        onPointerMove={event=>{trackCursor(event);if(event.currentTarget.hasPointerCapture(event.pointerId))paint(point(event))}}
+        onPointerUp={event=>{last.current=undefined;if(event.pointerType==='touch')setCursor(null);if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId)}}
+        onPointerCancel={()=>{last.current=undefined;setCursor(null)}} onLostPointerCapture={()=>last.current=undefined}/>
+      {cursor&&<span className="brush-cursor" aria-hidden="true" style={{left:cursor.x,top:cursor.y,width:cursor.diameter,height:cursor.diameter}}/>}
     </div>
     <p className="preview-caption">Paint on the photo · Restore reveals original pixels</p>
     {error&&<p className="notice error" role="alert">{error}</p>}
