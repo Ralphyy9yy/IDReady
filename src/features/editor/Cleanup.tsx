@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Undo2 } from 'lucide-react'
 import { containScale } from '../../lib/geometry'
 import { canvasToBlob, drawPhoto } from '../../services/image-processing/render'
 import type { PhotoSize, Transform } from '../../types'
@@ -55,7 +56,7 @@ export function Cleanup({original,processed,size,transform,onApply,onCancel}:{or
     <div className="cleanup-toolbar" role="group" aria-label="Background cleanup tools">
       <button className={`button secondary ${mode==='erase'?'active':''}`} aria-pressed={mode==='erase'} onClick={()=>setMode('erase')}>Erase</button>
       <button className={`button secondary ${mode==='restore'?'active':''}`} aria-pressed={mode==='restore'} onClick={()=>setMode('restore')}>Restore</button>
-      <button className="button secondary" disabled={!history.length||busy} onClick={()=>{const ctx=working.current?.getContext('2d'),previous=history[history.length-1];if(ctx&&previous){ctx.putImageData(previous,0,0);redraw()}setHistory(old=>old.slice(0,-1))}}>Undo stroke</button>
+      <button className="icon-button" aria-label="Undo stroke" title="Undo last stroke" disabled={!history.length||busy} onClick={()=>{const ctx=working.current?.getContext('2d'),previous=history[history.length-1];if(ctx&&previous){ctx.putImageData(previous,0,0);redraw()}setHistory(old=>old.slice(0,-1))}}><Undo2 aria-hidden="true"/></button>
     </div>
     <label className="inline-brush">Brush: {brush} px<input type="range" min="5" max="100" value={brush} onChange={e=>setBrush(Number(e.target.value))}/></label>
     <div className="preview-frame" style={{aspectRatio:`${size.widthMm}/${size.heightMm}`}}>
