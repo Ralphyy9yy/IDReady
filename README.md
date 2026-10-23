@@ -47,7 +47,7 @@ Screenshots captured from the running application. Some controls have changed si
 - PNG/JPEG downloads and PDF export with physical dimensions expressed in millimetres.
 - Multiple named drafts with thumbnails, timestamps, and individual resume/delete actions. Existing single drafts remain readable.
 - ASA pairing from two separate portraits with independent framing.
-- Custom dimensions in millimetres or inches, and manual erase/restore cleanup with stroke undo.
+- Custom dimensions in millimetres or inches, and manual erase/restore cleanup with stroke undo. After background removal, select **Clean up edges** to paint directly in the main photo workspace with the current crop and zoom; Apply saves the cleanup and Cancel discards it.
 - PWA app-shell caching and a separate download for offline AI assets.
 
 ### Workflow
