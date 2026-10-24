@@ -42,6 +42,7 @@ Screenshots captured from the running application. Some controls have changed si
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
 - Open crop frame for a reversible framing session with dimmed outside areas, zoom/position/rotation controls, Apply, Cancel, and Reset. The original pixels are retained.
 - Source-resolution warnings in the editor and export account for crop zoom and printed dimensions; 300-DPI output alone does not guarantee sharp detail.
+- For ASA, the Crop panel includes a compact two-person builder with upload thumbnails, a combined preview, selected-person framing, swap, and reset. Applying collapses the builder; drafts store the resulting combined photo, not separate editable portraits.
 - Export tool panels for Layout, Border, Name tag, and Download keep sheet settings compact, with a fitted zoomable preview and a persistent PDF download summary.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.

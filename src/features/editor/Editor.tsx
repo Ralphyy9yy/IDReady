@@ -7,8 +7,8 @@ import { NameTagControls } from './NameTagControls'
 import { drawPhoto } from '../../services/image-processing/render'
 import type { PhotoSize, Transform } from '../../types'
 
-interface Props { sizeControl: import('react').ReactNode; onApply: (blob:Blob)=>Promise<void>; image: ImageBitmap; original: ImageBitmap; size: PhotoSize; transform: Transform; onChange: (t: Transform) => void; onRemove: () => void; processing: boolean; bgError: string; processed: boolean; showOriginal: boolean; onShowOriginal: (v: boolean) => void }
-export function Editor({ sizeControl, image, original, size, transform: t, onChange, onRemove, processing, bgError, processed, showOriginal, onShowOriginal, onApply }: Props) {
+interface Props { pairBuilder: import('react').ReactNode; sizeControl: import('react').ReactNode; onApply: (blob:Blob)=>Promise<void>; image: ImageBitmap; original: ImageBitmap; size: PhotoSize; transform: Transform; onChange: (t: Transform) => void; onRemove: () => void; processing: boolean; bgError: string; processed: boolean; showOriginal: boolean; onShowOriginal: (v: boolean) => void }
+export function Editor({ pairBuilder, sizeControl, image, original, size, transform: t, onChange, onRemove, processing, bgError, processed, showOriginal, onShowOriginal, onApply }: Props) {
   const [cropping,setCropping]=useState(false)
   const [cleanup,setCleanup]=useState(false)
   const [tool,setTool]=useState<'crop'|'background'|'adjust'|'name'>('crop')
@@ -22,6 +22,7 @@ export function Editor({ sizeControl, image, original, size, transform: t, onCha
       </div>
       <div id="editor-tool-crop" className="editor-tool-panel" hidden={tool!=='crop'}>
         {!cropping&&sizeControl}
+        {!cropping&&pairBuilder}
         <button className="button primary full" disabled={cropping||processing} onClick={()=>setCropping(true)}><Crop/>Open crop frame</button>
         {!cropping&&<ResolutionNotice image={image} size={size} zoom={t.zoom}/>}
       <section hidden={cropping}><div className="section-heading"><div><h2>Position & crop</h2><p>{size.label} · {size.widthMm.toFixed(1)} × {size.heightMm.toFixed(1)} mm</p></div><button className="icon-button" aria-label="Reset adjustments" onClick={()=>onChange({...t,x:0,y:0,zoom:1,rotation:0})}><RotateCcw/></button></div><Slider label="Zoom" value={t.zoom} min={1} max={3} step={.01} display={`${Math.round(t.zoom*100)}%`} set={v=>set('zoom',v)}/><Slider label="Horizontal position" value={t.x} min={-.5} max={.5} step={.01} display={`${Math.round(t.x*100)}`} set={v=>set('x',v)}/><Slider label="Vertical position" value={t.y} min={-.5} max={.5} step={.01} display={`${Math.round(t.y*100)}`} set={v=>set('y',v)}/><Slider label="Rotation" value={t.rotation} min={-15} max={15} step={.1} display={`${t.rotation.toFixed(1)}°`} set={v=>set('rotation',v)}/></section>
