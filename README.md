@@ -40,6 +40,7 @@ Screenshots captured from the running application. Some controls have changed si
 - Local person segmentation with a white background and before/after review.
 - Optional face detection to suggest an initial crop.
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
+- Export tool panels for Layout, Border, Name tag, and Download keep sheet settings compact, with a fitted zoomable preview and a persistent PDF download summary.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.
 - Optional digital name tag with a full name, second line, text-size presets, and alignment. A compact-height white strip spans the bottom edge of the photo without changing its crop or position; long text shrinks to fit.
