@@ -41,6 +41,28 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async
   await expect(page.locator('.draft-item')).toHaveCount(1)
   await page.locator('.draft-item').last().getByRole('button',{name:'Resume',exact:true}).click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('1.5')
+  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
+  await page.screenshot({path:testInfo.outputPath('crop-frame.png')})
+  await page.getByLabel('Crop zoom',{exact:true}).evaluate(element=>{
+    const input=element as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'2')
+    input.dispatchEvent(new Event('input',{bubbles:true}))
+  })
+  await page.getByRole('button',{name:'Cancel crop',exact:true}).click()
+  await expect(page.locator('input[type=range]').first()).toHaveValue('1.5')
+  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
+  await page.getByLabel('Crop zoom',{exact:true}).evaluate(element=>{
+    const input=element as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'2')
+    input.dispatchEvent(new Event('input',{bubbles:true}))
+  })
+  await page.getByRole('button',{name:'Apply crop',exact:true}).click()
+  await expect(page.locator('input[type=range]').first()).toHaveValue('2')
+  await expect(page.locator('.resolution-notice')).toContainText('source pixels per inch')
+  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
+  await page.getByRole('button',{name:'Reset crop',exact:true}).click()
+  await page.getByRole('button',{name:'Apply crop',exact:true}).click()
+  await expect(page.locator('input[type=range]').first()).toHaveValue('1')
   await expect(page.getByRole('heading',{name:'Custom photo dimensions'})).toHaveCount(0)
   await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('custom')
   await page.getByLabel('Width',{exact:true}).fill('')
@@ -70,7 +92,7 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async
   await page.getByRole('button',{name:'Edit dimensions',exact:true}).click()
   await expect(page.getByLabel('Width',{exact:true})).toHaveValue('40')
   await page.getByRole('button',{name:'Apply dimensions',exact:true}).click()
-  await expect(page.locator('input[type=range]').first()).toHaveValue('1.5')
+  await expect(page.locator('input[type=range]').first()).toHaveValue('1')
   for(const width of [375,600,1280]){
     await page.setViewportSize({width,height:900})
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)

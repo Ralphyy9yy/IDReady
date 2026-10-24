@@ -40,6 +40,8 @@ Screenshots captured from the running application. Some controls have changed si
 - Local person segmentation with a white background and before/after review.
 - Optional face detection to suggest an initial crop.
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
+- Open crop frame for a reversible framing session with dimmed outside areas, zoom/position/rotation controls, Apply, Cancel, and Reset. The original pixels are retained.
+- Source-resolution warnings in the editor and export account for crop zoom and printed dimensions; 300-DPI output alone does not guarantee sharp detail.
 - Export tool panels for Layout, Border, Name tag, and Download keep sheet settings compact, with a fitted zoomable preview and a persistent PDF download summary.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.
@@ -246,7 +248,7 @@ npm test
 npm run build
 ```
 
-The unit suite has 13 tests covering conversions, DPI rounding, crop scale, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, and generated PDF page/placement dimensions.
+The unit suite has 16 tests covering conversions, DPI rounding, crop scale, effective source resolution, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, and generated PDF page/placement dimensions.
 
 The Playwright suite runs against the production build with synthetic image fixtures. It exercises multiple drafts and restored edits, custom sizes, ASA pairing, page navigation, name tags, PDF downloads, real offline worker segmentation with no remote requests, cleanup, missing-model failure/retry, simulated camera denial, and mobile horizontal overflow.
 

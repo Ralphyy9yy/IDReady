@@ -44,6 +44,14 @@
 .sheet-cut-guides line { stroke:#6e6e6e; stroke-width:.15; }
 .sheet-page-controls { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; }
 .sheet-page-controls .preview-caption { margin:0; }
+.crop-mode { width:100%; min-width:0; }
+.crop-mode canvas { display:block; height:auto; margin:auto; touch-action:none; cursor:grab; }
+.crop-instruction { font-size:12px; color:var(--muted); margin:0 0 10px; }
+.crop-fields { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-top:10px; }
+.crop-fields label { font-size:12px; color:var(--muted); }
+.crop-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:10px; }
+.editor-tool-panel > [hidden] { display:none; }
+.controls .resolution-notice { background:#fff8e8; border:1px solid #ead3a2; color:#78551a; font-size:12px; padding:12px; margin:0; }
 .editor-tools { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; background:#e8edf6; padding:5px; border-radius:12px; }
 .editor-tools button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-height:58px; border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:11px; font-weight:650; padding:6px 2px; }
 .editor-tools button[aria-pressed=true] { color:#1d4ed8; background:white; box-shadow:0 2px 5px #23385212; }
