@@ -1,3 +1,4 @@
+import { NameTagControls } from '../editor/NameTagControls'
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cuttingGuides } from '../../lib/geometry/guides'
@@ -5,7 +6,7 @@ import { layoutSheet } from '../../lib/geometry'
 import { mmToPx } from '../../lib/units'
 import { PAPERS } from '../../lib/units/papers'
 import { canvasToBlob, renderPhoto } from '../../services/image-processing/render'
-import type { BorderStyle, NameTag, PhotoSize, SheetSettings, Transform } from '../../types'
+import type { BorderStyle, PhotoSize, SheetSettings, Transform } from '../../types'
 
 const borders: { value: BorderStyle; label: string }[] = [
   { value: 'none', label: 'None' }, { value: 'thin-gray', label: 'Gray' },
@@ -20,8 +21,6 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
-  const nameTag: NameTag = transform.nameTag ?? { enabled: false, name: '', secondLine: '', fontSize: 5, alignment: 'center' }
-  const updateNameTag = (patch: Partial<NameTag>) => onTransformChange({ ...transform, nameTag: { ...nameTag, ...patch } })
   const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(null)
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
@@ -103,17 +102,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
           {!layout.perPage && <div className="notice error" role="alert">This photo does not fit. Try larger paper or smaller margins.</div>}
           {settings.quantity > layout.perPage && layout.perPage > 0 && <div className="notice" role="status">{layout.perPage} fit per page. Your {settings.quantity} copies will use {layout.pages} pages.</div>}
         </section>
-        <section className="name-tag-controls"><h2>Name tag</h2>
-          <label className="check"><input type="checkbox" checked={nameTag.enabled} onChange={event => updateNameTag({ enabled: event.target.checked })} />Add a name tag</label>
-          {nameTag.enabled && <>
-            <label>Full name<input type="text" maxLength={80} value={nameTag.name} placeholder="e.g. JUAN DELA CRUZ" onChange={event => updateNameTag({ name: event.target.value })} /></label>
-            <label>Second line (optional)<input type="text" maxLength={80} value={nameTag.secondLine} placeholder="e.g. Department or reference number" onChange={event => updateNameTag({ secondLine: event.target.value })} /></label>
-            <div className="field-row"><label>Text size<select value={nameTag.fontSize} onChange={event => updateNameTag({ fontSize: Number(event.target.value) })}><option value={4}>Small</option><option value={5}>Medium</option><option value={6}>Large</option></select></label>
-            <label>Alignment<select value={nameTag.alignment} onChange={event => updateNameTag({ alignment: event.target.value as NameTag['alignment'] })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
-            <p>The name tag overlays the bottom of your photo without moving the image. Long text automatically shrinks to fit.</p>
-            <div className="notice">CSC photos require a physical hand-held name tag and handwritten signature. A digital name tag does not replace that requirement.</div>
-          </>}
-        </section>
+        <NameTagControls transform={transform} onChange={onTransformChange}/>
         <section><h2>Single photo</h2><p>{size.widthMm} × {size.heightMm} mm · {mmToPx(size.widthMm)} × {mmToPx(size.heightMm)} px at 300 DPI</p>
           <div className="button-pair"><button className="button secondary" disabled={busy} onClick={() => void download('image/png')}><FileImage />PNG</button><button className="button secondary" disabled={busy} onClick={() => void download('image/jpeg')}><Download />JPEG</button></div>
         </section>

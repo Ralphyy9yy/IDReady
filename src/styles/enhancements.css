@@ -44,5 +44,21 @@
 .sheet-cut-guides line { stroke:#6e6e6e; stroke-width:.15; }
 .sheet-page-controls { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; }
 .sheet-page-controls .preview-caption { margin:0; }
+.editor-tools { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; background:#e8edf6; padding:5px; border-radius:12px; }
+.editor-tools button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-height:58px; border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:11px; font-weight:650; padding:6px 2px; }
+.editor-tools button[aria-pressed=true] { color:#1d4ed8; background:white; box-shadow:0 2px 5px #23385212; }
+.editor-tool-panel[hidden] { display:none; }
+.editor-tool-panel { display:flex; flex-direction:column; gap:12px; }
+.editor-tool-panel > section,.editor-tool-panel > details { background:white; padding:16px; border:1px solid var(--border); border-radius:10px; }
+.editor-tool-panel .custom-size { margin:0; }
+.editor-controls label.slider { margin:10px 0 6px; }
+.editor-controls .section-heading { margin-bottom:10px; }
+.editor-controls .details-body { margin-top:10px; }
+.editor-controls .size-guidance section { margin-top:12px; }
+.editor-grid .workspace { min-height:300px; --editor-preview-height:clamp(160px,calc(100dvh - 410px),550px); }
+.editor-grid .workspace .preview-frame { max-height:none; }
+.desktop-actions { position:sticky; bottom:12px; z-index:10; width:fit-content; margin-left:auto; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fffffff5; box-shadow:0 4px 20px #23385212; }
+@media(min-width:761px) { .editor-grid .workspace { position:sticky; top:100px; } }
+@media(max-width:760px) { .editor-grid .workspace { min-height:240px; --editor-preview-height:clamp(160px,32dvh,300px); padding:32px 16px 16px; } .editor-tools { position:sticky; top:80px; z-index:9; } }
 .cleanup-panel canvas { height:auto; max-height:none; width:min(100%,640px); }
 @media(max-width:760px) { .mobile-primary { display:flex; gap:8px; } .mobile-primary .button:first-child { flex-shrink:0; } .mobile-primary .full { flex:1; } .pair-slots { gap:10px; } }

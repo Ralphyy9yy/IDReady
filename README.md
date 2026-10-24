@@ -39,6 +39,7 @@ Screenshots captured from the running application. Some controls have changed si
 - JPEG, PNG, and WebP imports with file-signature validation.
 - Local person segmentation with a white background and before/after review.
 - Optional face detection to suggest an initial crop.
+- Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.
 - Optional digital name tag with a full name, second line, text-size presets, and alignment. A compact-height white strip spans the bottom edge of the photo without changing its crop or position; long text shrinks to fit.

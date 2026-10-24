@@ -15,7 +15,7 @@ async function importPhoto(page:Page) {
   await expect(page.locator('.app-notice')).toContainText(/face|position/i,{timeout:120000})
 }
 
-test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async({page})=>{
+test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async({page},testInfo)=>{
   await page.goto('/')
   await importPhoto(page)
   await page.locator('input[type=range]').first().evaluate(element=>{
@@ -60,6 +60,25 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async
   await page.getByLabel('Height',{exact:true}).fill('50')
   await page.getByRole('button',{name:'Apply dimensions'}).click()
   await expect(page.getByRole('combobox',{name:'Photo size',exact:true})).toHaveValue('custom')
+  await page.getByRole('button',{name:'Adjust',exact:true}).click()
+  await expect(page.getByRole('heading',{name:'Light & color'})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'Position & crop'})).toBeHidden()
+  await page.getByRole('button',{name:'Name tag',exact:true}).click()
+  await page.getByLabel('Add a name tag',{exact:true}).check()
+  await page.getByLabel('Full name',{exact:true}).fill('EDITOR TEST')
+  await page.getByRole('button',{name:'Crop',exact:true}).click()
+  await page.getByRole('button',{name:'Edit dimensions',exact:true}).click()
+  await expect(page.getByLabel('Width',{exact:true})).toHaveValue('40')
+  await page.getByRole('button',{name:'Apply dimensions',exact:true}).click()
+  await expect(page.locator('input[type=range]').first()).toHaveValue('1.5')
+  for(const width of [375,600,1280]){
+    await page.setViewportSize({width,height:900})
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+    const preview=await page.locator('.workspace > .preview-frame').boundingBox()
+    expect(preview!.height).toBeLessThan(600)
+    await page.evaluate(()=>window.scrollTo(0,0))
+    await page.screenshot({path:testInfo.outputPath(`editor-${width}.png`)})
+  }
   await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('asa')
   await page.getByText('Build an ASA pair from two photos',{exact:true}).click()
   const image=await fixture(page)
@@ -94,6 +113,7 @@ test('production offline reload runs real segmentation in a worker and exports',
   await context.setOffline(true)
   await page.reload()
   await importPhoto(page)
+  await page.getByRole('button',{name:'Background',exact:true}).click()
   await page.getByRole('button',{name:'Remove background',exact:true}).click()
   await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toBeEnabled({timeout:120000})
   await expect(page.locator('.app-notice')).toContainText('Background removed')
@@ -141,11 +161,13 @@ test('missing offline models fail honestly, preserve the photo, and retry online
   await context.setOffline(true)
   await page.reload()
   await importPhoto(page)
+  await page.getByRole('button',{name:'Background',exact:true}).click()
   await page.getByRole('button',{name:'Remove background',exact:true}).click()
   await expect(page.locator('.controls .notice.error')).toContainText('Your original is safe',{timeout:120000})
   await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toHaveCount(0)
   await expect(page.getByRole('button',{name:'Continue to export',exact:false})).toBeEnabled()
   await context.setOffline(false)
+  await page.getByRole('button',{name:'Background',exact:true}).click()
   await page.getByRole('button',{name:'Remove background',exact:true}).click()
   await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toBeEnabled({timeout:120000})
 })

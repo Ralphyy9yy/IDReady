@@ -20,7 +20,7 @@ export function CustomSize({size, sizes, onApply}: {size: PhotoSize; sizes: Phot
     }}>{sizes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}<option value="custom">{size.id === 'custom' ? size.label : 'Custom size…'}</option></select></label>
     {custom && <form onSubmit={event => {
       event.preventDefault()
-      if(valid) onApply({id:'custom', label:`Custom · ${format(w)} × ${format(h)} mm`, widthMm:w, heightMm:h})
+      if(valid) {onApply({id:'custom', label:`Custom · ${format(w)} × ${format(h)} mm`, widthMm:w, heightMm:h}); setCustom(false)}
     }}>
       <h2>Custom photo dimensions</h2>
       <div className="custom-dimensions-row">
@@ -38,5 +38,6 @@ export function CustomSize({size, sizes, onApply}: {size: PhotoSize; sizes: Phot
       <p id="custom-size-help" aria-live="polite">{valid ? `${format(w)} × ${format(h)} mm · ${Math.round(w/25.4*300)} × ${Math.round(h/25.4*300)} px at 300 DPI` : 'Enter width and height between 10 and 150 mm (about 0.394–5.905 inches).'}</p>
       <button className="button secondary full" type="submit" disabled={!valid}>Apply dimensions</button>
     </form>}
+    {!custom && size.id === 'custom' && <button className="button secondary full" onClick={()=>setCustom(true)}>Edit dimensions</button>}
   </section>
 }

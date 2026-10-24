@@ -67,7 +67,7 @@ export function Cleanup({original,processed,size,transform,onApply,onCancel}:{or
       <button className="icon-button" aria-label="Undo stroke" title="Undo last stroke" disabled={!history.length||busy} onClick={()=>{const ctx=working.current?.getContext('2d'),previous=history[history.length-1];if(ctx&&previous){ctx.putImageData(previous,0,0);redraw()}setHistory(old=>old.slice(0,-1))}}><Undo2 aria-hidden="true"/></button>
     </div>
     <label className="inline-brush">Brush: {brush} px<input type="range" min="5" max="100" value={brush} onChange={e=>setBrush(Number(e.target.value))}/></label>
-    <div className="preview-frame" style={{aspectRatio:`${size.widthMm}/${size.heightMm}`}}>
+    <div className="preview-frame" style={{aspectRatio:`${size.widthMm}/${size.heightMm}`,width:`min(100%, calc(var(--editor-preview-height, 550px) * ${size.widthMm/size.heightMm}))`}}>
       <canvas ref={canvas} aria-label="Photo preview. Paint to erase or restore background edges."
         onPointerEnter={event=>{if(event.pointerType!=='touch')trackCursor(event)}}
         onPointerLeave={()=>setCursor(null)}
