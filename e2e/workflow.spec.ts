@@ -18,6 +18,9 @@ async function importPhoto(page:Page) {
 test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async({page},testInfo)=>{
   await page.goto('/')
   await importPhoto(page)
+  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('wallet')
+  await expect(page.getByRole('heading',{name:'Position & crop'}).locator('..')).toContainText('63.5 × 88.9 mm')
+  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('35x45')
   await page.locator('input[type=range]').first().evaluate(element=>{
     const input=element as HTMLInputElement
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'1.5')

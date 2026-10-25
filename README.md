@@ -156,6 +156,7 @@ Photo dimensions below are **width × height**.
 | 1½ × 1½ inches | 38.1 × 38.1 mm |
 | 1 × 1½ inches | 25.4 × 38.1 mm |
 | ASA landscape | 76.2 × 35.56 mm |
+| Wallet (2½ × 3½ inches) | 63.5 × 88.9 mm |
 
 The ASA preset uses dimensions supplied for this project; it is not independently verified as an official requirement. Upload a photo containing both people, or select the ASA preset and open the pair builder to combine two separate portraits. Pair creation flattens both portraits into one image; save the result as a draft to retain it.
 

@@ -24,6 +24,7 @@ const SIZES:PhotoSize[]=[
  {id:'1-5x1-5',label:'1½ × 1½ inches',widthMm:38.1,heightMm:38.1},
  {id:'1x1-5',label:'1 × 1½ inches',widthMm:25.4,heightMm:38.1},
  {id:'asa',label:'ASA · 3 × 1.4 inches (landscape)',widthMm:76.2,heightMm:35.56},
+ {id:'wallet',label:'Wallet · 2½ × 3½ inches',widthMm:63.5,heightMm:88.9},
 ]
 const initialTransform:Transform={x:0,y:0,zoom:1,rotation:0,brightness:100,contrast:100,borderStyle:'none'}
 
