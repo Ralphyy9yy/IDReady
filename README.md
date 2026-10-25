@@ -39,6 +39,7 @@ Screenshots captured from the running application. Some controls have changed si
 - JPEG, PNG, and WebP imports with file-signature validation.
 - Local person segmentation with a white background and before/after review.
 - Optional face detection to suggest an initial crop.
+- Visible draft status tracks applied photo edits, saved time, and unapplied crop/cleanup sessions. Confirmation protects leaving or replacing unsaved work; browser refresh/close warnings depend on browser support. Downloading is not the same as saving a draft. Export sheet layout settings are session-only and are not included in drafts.
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
 - Open crop frame for a reversible framing session with dimmed outside areas, zoom/position/rotation controls, Apply, Cancel, and Reset. The original pixels are retained.
 - Source-resolution warnings in the editor and export account for crop zoom and printed dimensions; 300-DPI output alone does not guarantee sharp detail.

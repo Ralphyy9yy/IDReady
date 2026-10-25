@@ -1,4 +1,6 @@
 .draft-gallery { grid-column: 1 / -1; width: 100%; }
+.draft-save-status { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; color:var(--muted); font-size:12px; }
+.draft-save-status .button { min-height:36px; font-size:12px; }
 .draft-gallery h2 { font-size: 18px; }
 .draft-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:12px; }
 .draft-item { display:flex; gap:12px; padding:14px; background:white; border:1px solid var(--border); border-radius:10px; align-items:center; min-width:0; }

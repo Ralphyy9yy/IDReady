@@ -7,10 +7,11 @@ import { NameTagControls } from './NameTagControls'
 import { drawPhoto } from '../../services/image-processing/render'
 import type { PhotoSize, Transform } from '../../types'
 
-interface Props { pairBuilder: import('react').ReactNode; sizeControl: import('react').ReactNode; onApply: (blob:Blob)=>Promise<void>; image: ImageBitmap; original: ImageBitmap; size: PhotoSize; transform: Transform; onChange: (t: Transform) => void; onRemove: () => void; processing: boolean; bgError: string; processed: boolean; showOriginal: boolean; onShowOriginal: (v: boolean) => void }
-export function Editor({ pairBuilder, sizeControl, image, original, size, transform: t, onChange, onRemove, processing, bgError, processed, showOriginal, onShowOriginal, onApply }: Props) {
+interface Props { onPendingChange:(pending:boolean)=>void; pairBuilder: import('react').ReactNode; sizeControl: import('react').ReactNode; onApply: (blob:Blob)=>Promise<void>; image: ImageBitmap; original: ImageBitmap; size: PhotoSize; transform: Transform; onChange: (t: Transform) => void; onRemove: () => void; processing: boolean; bgError: string; processed: boolean; showOriginal: boolean; onShowOriginal: (v: boolean) => void }
+export function Editor({ onPendingChange, pairBuilder, sizeControl, image, original, size, transform: t, onChange, onRemove, processing, bgError, processed, showOriginal, onShowOriginal, onApply }: Props) {
   const [cropping,setCropping]=useState(false)
   const [cleanup,setCleanup]=useState(false)
+  useEffect(()=>{onPendingChange(cropping||cleanup);return()=>onPendingChange(false)},[cropping,cleanup,onPendingChange])
   const [tool,setTool]=useState<'crop'|'background'|'adjust'|'name'>('crop')
   const canvas = useRef<HTMLCanvasElement>(null); const drag = useRef<{x:number;y:number;tx:number;ty:number} | undefined>(undefined)
   useEffect(() => { const c = canvas.current; if (!c) return; const ratio = size.widthMm / size.heightMm; c.width = Math.min(760, Math.round(580 * ratio)); c.height = Math.round(c.width / ratio); const ctx = c.getContext('2d'); const source=showOriginal?original:image; if (ctx) drawPhoto(ctx, source, source.width, source.height, c.width, c.height, t) }, [image, original, size, t, showOriginal, cleanup, cropping])
