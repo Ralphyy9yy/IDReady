@@ -40,6 +40,7 @@ Screenshots captured from the running application. Some controls have changed si
 - Local person segmentation with a white background and before/after review.
 - Optional face detection to suggest an initial crop.
 - Final photo check in Export enlarges the actual download image and summarizes dimensions, pixels, estimated source detail, border, and name tag. Inspect framing and text manually before printing.
+- Inspect final photo opens a dedicated close-up dialog with zoom and scrolling; Close or Escape returns to the unchanged export settings.
 - Print calibration downloads a photo-free test PDF for the selected paper and orientation. At Actual size / 100% (Fit to page off), both sides of its square should measure 50 mm between line centers.
 - Visible draft status tracks applied photo edits, saved time, and unapplied crop/cleanup sessions. Confirmation protects leaving or replacing unsaved work; browser refresh/close warnings depend on browser support. Downloading is not the same as saving a draft. Export sheet layout settings are session-only and are not included in drafts.
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.

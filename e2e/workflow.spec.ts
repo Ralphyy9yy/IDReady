@@ -171,7 +171,24 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async
   }
   await page.getByRole('button',{name:'Download',exact:true}).click()
   await page.getByRole('button',{name:'Inspect final photo',exact:true}).click()
-  await expect(page.getByRole('img',{name:'Final photo with applied crop, border and name tag'})).toBeVisible()
+  const inspector=page.getByRole('dialog',{name:'Inspect final photo',exact:true})
+  await expect(inspector).toBeVisible()
+  await expect(inspector.getByRole('img',{name:'Enlarged final photo with applied crop, border and name tag',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Zoom in final photo',exact:true}).click()
+  await expect(inspector.locator('output')).toHaveText('125%')
+  for(const width of [375,1280]){
+    await page.setViewportSize({width,height:900})
+    const dialogBounds=await inspector.boundingBox()
+    expect(dialogBounds!.width).toBeLessThan(width)
+    await page.screenshot({path:testInfo.outputPath(`photo-inspector-${width}.png`)})
+  }
+  await page.getByRole('button',{name:'Close photo inspection',exact:true}).click()
+  await expect(inspector).toHaveCount(0)
+  await page.getByRole('button',{name:'Inspect final photo',exact:true}).click()
+  await expect(inspector).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(inspector).toHaveCount(0)
+  await page.getByRole('button',{name:'Final photo check',exact:true}).click()
   await expect(page.locator('.final-review-summary')).toContainText('Included')
   for(const width of [375,1280]){
     await page.setViewportSize({width,height:900})

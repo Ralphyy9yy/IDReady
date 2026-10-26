@@ -1,4 +1,5 @@
 import { NameTagControls } from '../editor/NameTagControls'
+import { PhotoInspector } from './PhotoInspector'
 import { ResolutionNotice } from '../editor/ResolutionNotice'
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut, LayoutGrid, Square, Type } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -25,6 +26,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
   const [previewView,setPreviewView]=useState<'sheet'|'photo'>('sheet')
+  const [inspecting,setInspecting]=useState(false)
   const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(null)
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
@@ -45,6 +47,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
     createSheetPdf(getCanvas().toDataURL('image/jpeg',.95),settings,size).save(`IDReady-${settings.paper.id}.pdf`)
   })
   return <div className="export-layout">
+    {inspecting&&<PhotoInspector src={previewUrl} ratio={size.widthMm/size.heightMm} onClose={()=>setInspecting(false)}/>}
     <div className="export-grid">
       <section className="sheet-area export-preview" aria-label="Printable sheet preview">
         <div className="review-view-switch" role="group" aria-label="Export preview view">
@@ -124,7 +127,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
         <div id="export-tool-download" className="editor-tool-panel" hidden={tool!=='download'}>
         <section className="final-review-summary"><h2>Final photo check</h2>
           <dl><dt>Print dimensions</dt><dd>{size.widthMm} × {size.heightMm} mm</dd><dt>Download pixels</dt><dd>{mmToPx(size.widthMm)} × {mmToPx(size.heightMm)} px</dd><dt>Estimated source detail</dt><dd>{Math.round(effectivePpi(image.width,image.height,size,transform.zoom))} PPI</dd><dt>Border</dt><dd>{borders.find(border=>border.value===(transform.borderStyle??'none'))?.label}</dd><dt>Name tag</dt><dd>{transform.nameTag?.enabled&&(transform.nameTag.name.trim()||transform.nameTag.secondLine.trim())?'Included':'Off'}</dd></dl>
-          <button className="button secondary full" onClick={()=>setPreviewView('photo')}>Inspect final photo</button>
+          <button className="button secondary full" aria-haspopup="dialog" onClick={()=>setInspecting(true)}>Inspect final photo</button>
           <p>Review text and framing yourself. Resolution estimates do not guarantee sharpness or official acceptance.</p>
         </section>
         <section><h2>Printable sheet</h2><p>Download the PDF for exact physical dimensions. Print at Actual size / 100%.</p><p>Use the Download PDF button below.</p></section>
