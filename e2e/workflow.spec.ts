@@ -170,6 +170,35 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async
     await page.screenshot({path:testInfo.outputPath(`export-${width}.png`)})
   }
   await page.getByRole('button',{name:'Download',exact:true}).click()
+  await page.getByRole('button',{name:'Inspect final photo',exact:true}).click()
+  await expect(page.getByRole('img',{name:'Final photo with applied crop, border and name tag'})).toBeVisible()
+  await expect(page.locator('.final-review-summary')).toContainText('Included')
+  for(const width of [375,1280]){
+    await page.setViewportSize({width,height:900})
+    await page.evaluate(()=>window.scrollTo(0,0))
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+    await page.screenshot({path:testInfo.outputPath(`final-review-${width}.png`)})
+  }
+  await page.getByText('Check print size',{exact:true}).click()
+  const calibration=page.waitForEvent('download')
+  await page.getByRole('button',{name:'Download calibration PDF',exact:true}).click()
+  const calibrationFile=await calibration
+  expect(calibrationFile.suggestedFilename()).toBe('IDReady-calibration-a4.pdf')
+  await calibrationFile.saveAs(testInfo.outputPath('calibration-a4.pdf'))
+  for(const orientation of ['portrait','landscape']){
+    await page.getByRole('button',{name:'Layout',exact:true}).click()
+    await page.getByRole('combobox',{name:'Paper',exact:true}).selectOption('3r')
+    await page.getByRole('combobox',{name:'Orientation',exact:true}).selectOption(orientation)
+    await page.getByRole('button',{name:'Download',exact:true}).click()
+    const nextCalibration=page.waitForEvent('download')
+    await page.getByRole('button',{name:'Download calibration PDF',exact:true}).click()
+    await (await nextCalibration).saveAs(testInfo.outputPath(`calibration-3r-${orientation}.pdf`))
+  }
+  await page.getByRole('button',{name:'Layout',exact:true}).click()
+  await page.getByRole('combobox',{name:'Paper',exact:true}).selectOption('a4')
+  await page.getByRole('combobox',{name:'Orientation',exact:true}).selectOption('portrait')
+  await page.getByRole('button',{name:'Download',exact:true}).click()
+  await page.getByRole('button',{name:'Sheet',exact:true}).click()
   const pngDownload=page.waitForEvent('download')
   await page.getByRole('button',{name:'PNG',exact:true}).click()
   expect((await pngDownload).suggestedFilename()).toBe('IDReady-asa.png')

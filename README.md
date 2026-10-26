@@ -39,6 +39,8 @@ Screenshots captured from the running application. Some controls have changed si
 - JPEG, PNG, and WebP imports with file-signature validation.
 - Local person segmentation with a white background and before/after review.
 - Optional face detection to suggest an initial crop.
+- Final photo check in Export enlarges the actual download image and summarizes dimensions, pixels, estimated source detail, border, and name tag. Inspect framing and text manually before printing.
+- Print calibration downloads a photo-free test PDF for the selected paper and orientation. At Actual size / 100% (Fit to page off), both sides of its square should measure 50 mm between line centers.
 - Visible draft status tracks applied photo edits, saved time, and unapplied crop/cleanup sessions. Confirmation protects leaving or replacing unsaved work; browser refresh/close warnings depend on browser support. Downloading is not the same as saving a draft. Export sheet layout settings are session-only and are not included in drafts.
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
 - Open crop frame for a reversible framing session with dimmed outside areas, zoom/position/rotation controls, Apply, Cancel, and Reset. The original pixels are retained.
@@ -251,7 +253,7 @@ npm test
 npm run build
 ```
 
-The unit suite has 16 tests covering conversions, DPI rounding, crop scale, effective source resolution, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, and generated PDF page/placement dimensions.
+The unit suite has 17 tests covering conversions, DPI rounding, crop scale, effective source resolution, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, generated PDF page/placement dimensions, and exact calibration-square dimensions across all paper presets and orientations.
 
 The Playwright suite runs against the production build with synthetic image fixtures. It exercises multiple drafts and restored edits, custom sizes, ASA pairing, page navigation, name tags, PDF downloads, real offline worker segmentation with no remote requests, cleanup, missing-model failure/retry, simulated camera denial, and mobile horizontal overflow.
 

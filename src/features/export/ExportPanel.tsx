@@ -6,6 +6,7 @@ import { cuttingGuides } from '../../lib/geometry/guides'
 import { layoutSheet } from '../../lib/geometry'
 import { mmToPx } from '../../lib/units'
 import { PAPERS } from '../../lib/units/papers'
+import { effectivePpi } from '../../lib/geometry/resolution'
 import { canvasToBlob, renderPhoto } from '../../services/image-processing/render'
 import type { BorderStyle, PhotoSize, SheetSettings, Transform } from '../../types'
 
@@ -23,6 +24,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
+  const [previewView,setPreviewView]=useState<'sheet'|'photo'>('sheet')
   const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(null)
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
@@ -45,6 +47,12 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   return <div className="export-layout">
     <div className="export-grid">
       <section className="sheet-area export-preview" aria-label="Printable sheet preview">
+        <div className="review-view-switch" role="group" aria-label="Export preview view">
+          <button className="button secondary" aria-pressed={previewView==='sheet'} onClick={()=>setPreviewView('sheet')}>Sheet</button>
+          <button className="button secondary" aria-pressed={previewView==='photo'} onClick={()=>{setPreviewView('photo');setTool('download')}}>Final photo check</button>
+        </div>
+        {previewView==='photo'&&<div className="final-photo-preview"><img src={previewUrl} alt="Final photo with applied crop, border and name tag"/><p>Enlarged preview — not actual print size. Check framing, edges, and text.</p></div>}
+        <div className="sheet-preview-content" hidden={previewView!=='sheet'}>
         <div className="preview-zoom-toolbar" role="group" aria-label="Print preview zoom">
           <button className="icon-button" aria-label="Zoom out print preview" disabled={previewZoom <= 100} onClick={() => setPreviewZoom(value => Math.max(100, value - 25))}><ZoomOut /></button>
           <output aria-live="polite">{previewZoom}%</output>
@@ -80,6 +88,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
         </div>
         </div>
         <div className="sheet-page-controls"><button className="button quiet" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Previous</button><p className="preview-caption" aria-live="polite">Page {layout.pages ? currentPage+1 : 0} of {layout.pages} · {layout.perPage} fit per page</p><button className="button quiet" disabled={currentPage>=layout.pages-1} onClick={()=>setPage(currentPage+1)}>Next</button></div>
+        </div>
       </section>
       <aside className="controls export-controls">
         <ResolutionNotice image={image} size={size} zoom={transform.zoom}/>
@@ -113,10 +122,19 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
           </div><p>Applied inside each photo, including PNG and JPEG downloads.</p></fieldset></section></div>
         <div id="export-tool-name" className="editor-tool-panel" hidden={tool!=='name'}><NameTagControls transform={transform} onChange={onTransformChange}/></div>
         <div id="export-tool-download" className="editor-tool-panel" hidden={tool!=='download'}>
+        <section className="final-review-summary"><h2>Final photo check</h2>
+          <dl><dt>Print dimensions</dt><dd>{size.widthMm} × {size.heightMm} mm</dd><dt>Download pixels</dt><dd>{mmToPx(size.widthMm)} × {mmToPx(size.heightMm)} px</dd><dt>Estimated source detail</dt><dd>{Math.round(effectivePpi(image.width,image.height,size,transform.zoom))} PPI</dd><dt>Border</dt><dd>{borders.find(border=>border.value===(transform.borderStyle??'none'))?.label}</dd><dt>Name tag</dt><dd>{transform.nameTag?.enabled&&(transform.nameTag.name.trim()||transform.nameTag.secondLine.trim())?'Included':'Off'}</dd></dl>
+          <button className="button secondary full" onClick={()=>setPreviewView('photo')}>Inspect final photo</button>
+          <p>Review text and framing yourself. Resolution estimates do not guarantee sharpness or official acceptance.</p>
+        </section>
         <section><h2>Printable sheet</h2><p>Download the PDF for exact physical dimensions. Print at Actual size / 100%.</p><p>Use the Download PDF button below.</p></section>
         <section><h2>Single photo</h2><p>{size.widthMm} × {size.heightMm} mm · {mmToPx(size.widthMm)} × {mmToPx(size.heightMm)} px at 300 DPI</p>
           <div className="button-pair"><button className="button secondary" disabled={busy} onClick={() => void download('image/png')}><FileImage />PNG</button><button className="button secondary" disabled={busy} onClick={() => void download('image/jpeg')}><Download />JPEG</button></div>
         </section>
+        <details className="print-check"><summary><Printer/>Check print size</summary><div className="details-body"><p>Download a test for {settings.paper.label} ({settings.orientation}). Print at Actual size / 100%, with Fit to page off. Both sides of the test square must measure 50 mm.</p><button className="button secondary full" disabled={busy} onClick={()=>void runExport(async()=>{
+          const {createCalibrationPdf}=await import('../../services/export/calibration')
+          createCalibrationPdf(settings).save(`IDReady-calibration-${settings.paper.id}.pdf`)
+        })}>Download calibration PDF</button><p>This test contains no photo and does not change your layout or crop.</p></div></details>
         <details className="print-check"><summary><Printer />Printing tips</summary><div className="details-body"><ol><li>Select {settings.paper.label} paper.</li><li>Choose Actual size / 100%.</li><li>Turn off Fit to page.</li><li>Choose the correct paper type and quality.</li></ol><p><strong>Epson L3210:</strong> Download the PDF, transfer it to a computer connected to the printer by USB, and print at 100%.</p></div></details>
         </div>
       </aside>
