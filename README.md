@@ -176,7 +176,7 @@ Presets provide dimensions, not official acceptance guarantees. CSC requirements
 
 1. Open the deployed HTTPS site while connected.
 2. Allow the app shell to finish caching.
-3. Open **Offline setup** and download the AI assets, approximately 51 MB uncompressed.
+3. Open **Offline setup**, stay on the **Offline** tab, and choose **Set up offline · ~51 MB**. Ready checks turn green when the required files are stored. **Check again** rechecks local files without downloading them again.
 4. Wait for the application shell, background model, and face model to show as cached.
 5. Disconnect, reload normally, and test background removal and export.
 

@@ -1,4 +1,32 @@
 .draft-gallery { grid-column: 1 / -1; width: 100%; }
+.tabbed-settings { padding:0; border:1px solid var(--border); width:min(580px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); overflow:hidden; color:#17212f; }
+.tabbed-settings[open] { display:flex; flex-direction:column; }
+.tabbed-settings::backdrop { background:#101828aa; }
+.tabbed-settings header { flex-shrink:0; align-items:flex-start; gap:12px; }
+.tabbed-settings header .icon-button { flex-shrink:0; }
+.settings-tabs { display:flex; padding:8px 20px 0; gap:4px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.settings-tabs button { flex:1; min-height:44px; border:0; border-bottom:3px solid transparent; background:transparent; color:var(--muted); font-weight:600; font-size:13px; }
+.settings-tabs [aria-selected=true] { border-bottom-color:var(--primary); color:#17212f; }
+.tabbed-settings .settings-content { overflow-y:auto; overscroll-behavior:contain; min-height:0; padding:18px 24px; }
+.tabbed-settings [role=tabpanel][hidden] { display:none; }
+.tabbed-settings .settings-content .offline-panel { padding:0; border:0; }
+.offline-summary { display:flex; gap:10px; align-items:flex-start; padding:14px; border-radius:10px; border:1px solid #ecd8af; background:#fff9ed; }
+.offline-summary > svg { flex-shrink:0; color:#946018; margin-top:2px; }
+.offline-summary.is-ready { border-color:#b8ddc9; background:#f0faf4; }
+.offline-summary.is-ready > svg { color:#217246; }
+.offline-summary h3 { margin:0 0 5px; }
+.tabbed-settings .offline-summary p { margin:0; font-size:12px; }
+.offline-states li { align-items:center; font-size:13px; }
+.offline-states strong { font-size:12px; font-weight:600; }
+.offline-states .status-ready { color:#217246; }
+.offline-states .status-missing { color:#946018; }
+.offline-states .status-neutral { color:var(--muted); }
+.tabbed-settings .offline-update,.tabbed-settings .offline-short-note { font-size:12px; color:var(--muted); }
+.offline-details { border-top:1px solid var(--border); margin-top:12px; padding-top:6px; }
+.offline-details summary { min-height:44px; align-content:center; font-size:13px; font-weight:600; cursor:pointer; }
+.tabbed-settings .offline-details p { font-size:12px; }
+.tabbed-settings .offline-remove { color:#a32929; border-color:#e3bbbb; }
+@media(max-width:480px) { .tabbed-settings header { padding:16px; } .settings-tabs { padding-inline:12px; } .tabbed-settings .settings-content { padding:14px 16px; } }
 .draft-save-status { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; color:var(--muted); font-size:12px; }
 .draft-save-status .button { min-height:36px; font-size:12px; }
 .draft-gallery h2 { font-size: 18px; }
