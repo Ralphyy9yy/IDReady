@@ -16,10 +16,9 @@ const borders: { value: BorderStyle; label: string }[] = [
   { value: 'thin-black', label: 'Thin' }, { value: 'medium-black', label: 'Medium' },
   { value: 'double-black', label: 'Double' }, { value: 'white-inset', label: 'White' },
 ]
-interface Props { image: ImageBitmap; size: PhotoSize; transform: Transform; onTransformChange: (transform: Transform) => void }
+interface Props { image: ImageBitmap; size: PhotoSize; transform: Transform; onTransformChange: (transform: Transform) => void; settings:SheetSettings; onSettingsChange:(settings:SheetSettings)=>void }
 
-export function ExportPanel({ image, size, transform, onTransformChange }: Props) {
-  const [settings, setSettings] = useState<SheetSettings>({ paper: PAPERS[0], orientation: 'portrait', quantity: 8, marginMm: 10, gapMm: 3, cuttingGuides: true })
+export function ExportPanel({ image, size, transform, onTransformChange, settings, onSettingsChange }: Props) {
   const [page, setPage] = useState(0)
   const [tool,setTool] = useState<'layout'|'border'|'name'|'download'>('layout')
   const [busy, setBusy] = useState(false)
@@ -30,7 +29,7 @@ export function ExportPanel({ image, size, transform, onTransformChange }: Props
   const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(null)
   const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
-  const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) => setSettings(s => ({ ...s, [key]: value }))
+  const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) => onSettingsChange({ ...settings, [key]: value })
   const currentPage = Math.min(page, Math.max(0, layout.pages - 1))
   const getCanvas = () => renderPhoto(image, image.width, image.height, size, transform)
   async function runExport(action: () => Promise<void>) {

@@ -8,4 +8,6 @@ export interface Paper { id: 'a4' | 'a5' | 'a6' | 'letter' | 'legal' | '3r' | '4
 export interface SheetSettings { paper: Paper; orientation: 'portrait' | 'landscape'; quantity: number; marginMm: number; gapMm: number; cuttingGuides: boolean }
 export interface LayoutItem { x: number; y: number; width: number; height: number; page: number }
 export interface SheetLayout { items: LayoutItem[]; perPage: number; pages: number; pageWidth: number; pageHeight: number; cols: number; rows: number }
-export interface StoredDraft { id: string; createdAt: number; updatedAt?: number; name?: string; thumbnail?: Blob; photo: Blob; size: PhotoSize; transform: Transform; processed?: Blob }
+export interface AsaPortrait { photo:Blob; transform:Transform }
+export type AsaPair = (AsaPortrait|undefined)[]
+export interface StoredDraft { id: string; createdAt: number; updatedAt?: number; name?: string; thumbnail?: Blob; photo: Blob; size: PhotoSize; transform: Transform; processed?: Blob; sheetSettings?:SheetSettings; asaPair?:AsaPair; stage?:'edit'|'export' }

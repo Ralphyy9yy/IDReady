@@ -42,11 +42,11 @@ Screenshots captured from the running application. Some controls have changed si
 - Final photo check in Export enlarges the actual download image and summarizes dimensions, pixels, estimated source detail, border, and name tag. Inspect framing and text manually before printing.
 - Inspect final photo opens a dedicated close-up dialog with zoom and scrolling; Close or Escape returns to the unchanged export settings.
 - Print calibration downloads a photo-free test PDF for the selected paper and orientation. At Actual size / 100% (Fit to page off), both sides of its square should measure 50 mm between line centers.
-- Visible draft status tracks applied photo edits, saved time, and unapplied crop/cleanup sessions. Confirmation protects leaving or replacing unsaved work; browser refresh/close warnings depend on browser support. Downloading is not the same as saving a draft. Export sheet layout settings are session-only and are not included in drafts.
+- Visible draft status tracks applied photo edits, saved time, and unapplied crop/cleanup sessions. Confirmation protects leaving or replacing unsaved work; browser refresh/close warnings depend on browser support. Downloading is not the same as saving a draft. Export sheet layout settings and editable ASA portraits are included in new saves.
 - Compact editor tool panels for Crop, Background, Adjust, and Name tag, with a viewport-fitted preview and accessible save/export actions. Tool changes preserve your edits.
 - Open crop frame for a reversible framing session with dimmed outside areas, zoom/position/rotation controls, Apply, Cancel, and Reset. The original pixels are retained.
 - Source-resolution warnings in the editor and export account for crop zoom and printed dimensions; 300-DPI output alone does not guarantee sharp detail.
-- For ASA, the Crop panel includes a compact two-person builder with upload thumbnails, a combined preview, selected-person framing, swap, and reset. Applying collapses the builder; drafts store the resulting combined photo, not separate editable portraits.
+- For ASA, the Crop panel includes a compact two-person builder with upload thumbnails, a combined preview, selected-person framing, swap, and reset. Applying collapses the builder; drafts retain the combined image plus both original portrait files and their framing.
 - Export tool panels for Layout, Border, Name tag, and Download keep sheet settings compact, with a fitted zoomable preview and a persistent PDF download summary.
 - Drag positioning, zoom, rotation, brightness, contrast, and reset controls.
 - Selectable photo borders rendered inside the chosen photo dimensions.
@@ -162,7 +162,7 @@ Photo dimensions below are **width × height**.
 | ASA landscape | 76.2 × 35.56 mm |
 | Wallet (2½ × 3½ inches) | 63.5 × 88.9 mm |
 
-The ASA preset uses dimensions supplied for this project; it is not independently verified as an official requirement. Upload a photo containing both people, or select the ASA preset and open the pair builder to combine two separate portraits. Pair creation flattens both portraits into one image; save the result as a draft to retain it.
+The ASA preset uses dimensions supplied for this project; it is not independently verified as an official requirement. Upload a photo containing both people, or select the ASA preset and open the pair builder to combine two separate portraits. Pair creation renders a combined image for export. Saving a draft also keeps both original portraits and their independent framing, including swaps, so they remain editable. Rebuilding the pair resets cleanup on the combined image after confirmation.
 
 Custom dimensions accept 10–150 mm per side, or the equivalent in inches. These limits bound raster export memory use.
 
@@ -195,7 +195,7 @@ Storage can be cleared or evicted. Recheck offline readiness before relying on t
 ## Privacy and local storage
 
 - Current photos remain in memory unless **Save draft** is selected.
-- A draft contains the original image, processed image when available, selected size, and adjustments, including the border.
+- A draft contains the original image, processed image when available, selected size, crop, border, name tag, export paper/orientation/copies/margins/gap/cutting guides, and any ASA portrait files with individual framing. It resumes in the editor or export screen where it was saved.
 - Loading a new photo and saving creates another named draft. Resuming a draft and saving updates that draft after confirmation.
 - Drafts include small thumbnail images and timestamps. They are available on the home screen and through Settings.
 - Drafts have no automatic expiry. They can be deleted through Settings after confirmation.
@@ -254,7 +254,7 @@ npm test
 npm run build
 ```
 
-The unit suite has 17 tests covering conversions, DPI rounding, crop scale, effective source resolution, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, generated PDF page/placement dimensions, and exact calibration-square dimensions across all paper presets and orientations.
+The unit suite has 20 tests covering conversions, DPI rounding, crop scale, effective source resolution, printable bounds, multi-page quantities, safe cutting guides, name-tag transform consistency, generated PDF page/placement dimensions, and exact calibration-square dimensions across all paper presets and orientations.
 
 The Playwright suite runs against the production build with synthetic image fixtures. It exercises multiple drafts and restored edits, custom sizes, ASA pairing, page navigation, name tags, PDF downloads, real offline worker segmentation with no remote requests, cleanup, missing-model failure/retry, simulated camera denial, and mobile horizontal overflow.
 
@@ -283,7 +283,7 @@ Browser tests validate behavior with synthetic inputs; they do not certify portr
 - The segmentation model can lose fine hair or translucent edges. Manual cleanup uses a working copy capped at 1600 px; applying it replaces the processed image at that resolution. Restore reveals original pixels, which can also restore the original background.
 - Face detection is crop assistance, not biometric or document-compliance validation.
 - Preview supports all generated pages and shares cutting-guide geometry with PDF export. A dedicated Print/Share action is not implemented.
-- Paper and sheet settings are session state and are not included in saved drafts.
+- Older drafts without layout settings use the default A4 layout. Older flattened ASA drafts cannot recover separate originals; upload the portraits to rebuild an editable pair. Editable ASA drafts use more browser storage. Preview zoom, tool selection, and scroll position are not saved.
 - Browser installation, storage persistence, and offline camera behavior vary by platform.
 
 ## Troubleshooting
