@@ -1,5 +1,26 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('combines edited photos into one sheet and downloads a PDF',async({page})=>{
+  page.on('dialog',dialog=>void dialog.accept())
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await page.getByLabel('Photo 1 copies',{exact:true}).fill('3')
+  await page.getByRole('button',{name:'Add another photo',exact:true}).click()
+  await importPhoto(page)
+  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
+  await expect(page.getByLabel('Photo 1 copies',{exact:true})).toHaveValue('3')
+  await page.getByLabel('Photo 2 copies',{exact:true}).fill('2')
+  await expect(page.locator('.sheet-photo')).toHaveCount(5)
+  const download=page.waitForEvent('download')
+  await page.getByRole('button',{name:'Download PDF',exact:true}).click()
+  expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
+  await page.getByRole('button',{name:'Remove photo 1',exact:true}).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(1)
+  await expect(page.locator('.sheet-photo')).toHaveCount(2)
+})
+
 async function fixture(page:Page) {
   const data=await page.evaluate(()=>{
     const canvas=document.createElement('canvas');canvas.width=600;canvas.height=600

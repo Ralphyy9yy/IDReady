@@ -120,3 +120,10 @@
 .sheet-zoom-viewport.is-zoomed { cursor: grab; touch-action: none; user-select: none; }
 .sheet-zoom-viewport[data-dragging='true'] { cursor: grabbing; }
 @media (max-width: 760px) { .sheet-zoom-viewport { height: min(440px, 55dvh); } .preview-zoom-toolbar { gap: 2px; } }
+.mixed-photo-list { margin-block: 16px; padding-block: 12px; border-block: 1px solid #dce3ef; }
+.mixed-photo-row { display: flex; gap: 12px; align-items: center; padding-block: 12px; border-bottom: 1px solid #e8edf5; }
+.mixed-photo-row img { width: 52px; height: 64px; object-fit: contain; background: #edf1f7; border-radius: 6px; }
+.mixed-photo-row > div { flex: 1; min-width: 0; }
+.mixed-photo-row p { margin: 4px 0; font-size: 12px; }
+.mixed-photo-row input { max-width: 100px; }
+.mixed-photo-list > button { margin-top: 12px; }

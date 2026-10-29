@@ -2,6 +2,24 @@ import { jsPDF } from 'jspdf'
 import { layoutSheet } from '../../lib/geometry'
 import { cuttingGuides } from '../../lib/geometry/guides'
 import type { PhotoSize, SheetSettings } from '../../types'
+import { layoutMixedSheet, type SheetPhoto } from '../../lib/geometry/mixed'
+
+export function createMixedSheetPdf(photos: SheetPhoto[], settings: SheetSettings) {
+  const layout = layoutMixedSheet(settings, photos)
+  if (!layout.items.length || layout.unfit.length) throw new Error('Some photos do not fit on the selected paper.')
+  const doc = new jsPDF({ unit: 'mm', format: [layout.pageWidth, layout.pageHeight], orientation: settings.orientation })
+  for (let page = 0; page < layout.pages; page++) {
+    if (page) doc.addPage([layout.pageWidth, layout.pageHeight], settings.orientation)
+    for (const item of layout.items.filter(item => item.page === page)) {
+      doc.addImage(item.photo.data, 'PNG', item.x, item.y, item.width, item.height, String(item.photo.id), 'FAST')
+      if (settings.cuttingGuides) {
+        doc.setDrawColor(110); doc.setLineWidth(.15)
+        for (const line of cuttingGuides(item, settings.gapMm, settings.marginMm)) doc.line(line.x1, line.y1, line.x2, line.y2)
+      }
+    }
+  }
+  return doc
+}
 
 export function createSheetPdf(data:string,settings:SheetSettings,size:PhotoSize) {
   const layout=layoutSheet(settings,size)

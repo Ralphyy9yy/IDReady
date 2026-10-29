@@ -4,7 +4,7 @@ import { ResolutionNotice } from '../editor/ResolutionNotice'
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut, LayoutGrid, Square, Type } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cuttingGuides } from '../../lib/geometry/guides'
-import { layoutSheet } from '../../lib/geometry'
+import { layoutMixedSheet, type SheetPhoto } from '../../lib/geometry/mixed'
 import { mmToPx } from '../../lib/units'
 import { PAPERS } from '../../lib/units/papers'
 import { effectivePpi } from '../../lib/geometry/resolution'
@@ -16,9 +16,9 @@ const borders: { value: BorderStyle; label: string }[] = [
   { value: 'thin-black', label: 'Thin' }, { value: 'medium-black', label: 'Medium' },
   { value: 'double-black', label: 'Double' }, { value: 'white-inset', label: 'White' },
 ]
-interface Props { image: ImageBitmap; size: PhotoSize; transform: Transform; onTransformChange: (transform: Transform) => void; settings:SheetSettings; onSettingsChange:(settings:SheetSettings)=>void }
+interface Props { photos: SheetPhoto[]; onPhotosChange: (photos: SheetPhoto[]) => void; photoId: number; onAddPhoto: () => void; image: ImageBitmap; size: PhotoSize; transform: Transform; onTransformChange: (transform: Transform) => void; settings:SheetSettings; onSettingsChange:(settings:SheetSettings)=>void }
 
-export function ExportPanel({ image, size, transform, onTransformChange, settings, onSettingsChange }: Props) {
+export function ExportPanel({ photos, onPhotosChange, photoId, onAddPhoto, image, size, transform, onTransformChange, settings, onSettingsChange }: Props) {
   const [page, setPage] = useState(0)
   const [tool,setTool] = useState<'layout'|'border'|'name'|'download'>('layout')
   const [busy, setBusy] = useState(false)
@@ -27,8 +27,10 @@ export function ExportPanel({ image, size, transform, onTransformChange, setting
   const [previewView,setPreviewView]=useState<'sheet'|'photo'>('sheet')
   const [inspecting,setInspecting]=useState(false)
   const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(null)
-  const layout = useMemo(() => layoutSheet(settings, size), [settings, size])
   const previewUrl = useMemo(() => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'), [image, size, transform])
+  const collection = [...photos.filter(photo => photo.id !== photoId), { id: photoId, data: previewUrl, size, quantity: settings.quantity }]
+  const layout = layoutMixedSheet(settings, collection)
+  const totalCopies = collection.reduce((sum, photo) => sum + photo.quantity, 0)
   const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) => onSettingsChange({ ...settings, [key]: value })
   const currentPage = Math.min(page, Math.max(0, layout.pages - 1))
   const getCanvas = () => renderPhoto(image, image.width, image.height, size, transform)
@@ -42,8 +44,8 @@ export function ExportPanel({ image, size, transform, onTransformChange, setting
     save(blob, `IDReady-${size.id}.${type === 'image/png' ? 'png' : 'jpg'}`)
   })
   const pdf = () => runExport(async () => {
-    const { createSheetPdf } = await import('../../services/export/pdf')
-    createSheetPdf(getCanvas().toDataURL('image/jpeg',.95),settings,size).save(`IDReady-${settings.paper.id}.pdf`)
+    const { createMixedSheetPdf } = await import('../../services/export/pdf')
+    createMixedSheetPdf(collection,settings).save(`IDReady-${settings.paper.id}.pdf`)
   })
   return <div className="export-layout">
     {inspecting&&<PhotoInspector src={previewUrl} ratio={size.widthMm/size.heightMm} onClose={()=>setInspecting(false)}/>}
@@ -83,13 +85,13 @@ export function ExportPanel({ image, size, transform, onTransformChange, setting
           onPointerCancel={event => { pan.current = null; delete event.currentTarget.dataset.dragging }}
           onLostPointerCapture={event => { pan.current = null; delete event.currentTarget.dataset.dragging }}>
         <div className="sheet" style={{ aspectRatio: `${layout.pageWidth}/${layout.pageHeight}`, width: `calc(min(100cqw - 24px, var(--sheet-fit-height) * ${layout.pageWidth / layout.pageHeight}) * ${previewZoom / 100})` }}>
-          {layout.items.filter(i => i.page === currentPage).map((i, n) => <div key={n} className="sheet-photo" style={{ left: `${i.x / layout.pageWidth * 100}%`, top: `${i.y / layout.pageHeight * 100}%`, width: `${i.width / layout.pageWidth * 100}%`, height: `${i.height / layout.pageHeight * 100}%`, backgroundImage: `url(${previewUrl})` }} />)}
+          {layout.items.filter(i => i.page === currentPage).map((i, n) => <div key={n} className="sheet-photo" style={{ left: `${i.x / layout.pageWidth * 100}%`, top: `${i.y / layout.pageHeight * 100}%`, width: `${i.width / layout.pageWidth * 100}%`, height: `${i.height / layout.pageHeight * 100}%`, backgroundImage: `url(${i.photo.data})` }} />)}
           {settings.cuttingGuides&&<svg className="sheet-cut-guides" viewBox={`0 0 ${layout.pageWidth} ${layout.pageHeight}`} aria-hidden="true">
             {layout.items.filter(item=>item.page===currentPage).flatMap(item=>cuttingGuides(item,settings.gapMm,settings.marginMm)).map((line,index)=><line key={index} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2}/>)}
           </svg>}
         </div>
         </div>
-        <div className="sheet-page-controls"><button className="button quiet" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Previous</button><p className="preview-caption" aria-live="polite">Page {layout.pages ? currentPage+1 : 0} of {layout.pages} · {layout.perPage} fit per page</p><button className="button quiet" disabled={currentPage>=layout.pages-1} onClick={()=>setPage(currentPage+1)}>Next</button></div>
+        <div className="sheet-page-controls"><button className="button quiet" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Previous</button><p className="preview-caption" aria-live="polite">Page {layout.pages ? currentPage+1 : 0} of {layout.pages} · {layout.items.filter(item=>item.page===currentPage).length} copies on this page</p><button className="button quiet" disabled={currentPage>=layout.pages-1} onClick={()=>setPage(currentPage+1)}>Next</button></div>
         </div>
       </section>
       <aside className="controls export-controls">
@@ -99,6 +101,17 @@ export function ExportPanel({ image, size, transform, onTransformChange, setting
         </div>
         <div id="export-tool-layout" className="editor-tool-panel" hidden={tool!=='layout'}>
         <section><h2>Sheet settings</h2><p>Choose your paper and arrange your copies.</p>
+          <div className="mixed-photo-list"><h3>Photos on this sheet</h3><p>Each photo keeps its own size and finished edits. This collection stays in memory until you reload; individual drafts do not save the whole sheet.</p>
+            {collection.map((photo, index) => <div className="mixed-photo-row" key={photo.id}>
+              <img src={photo.data} alt={`Photo ${index + 1}`} />
+              <div><strong>Photo {index + 1}{photo.id === photoId ? ' (editing)' : ''}</strong><p>{photo.size.widthMm} × {photo.size.heightMm} mm</p>
+                <label>Photo {index + 1} copies<NumberField min={1} max={100} step={1} value={photo.quantity} onCommit={quantity => photo.id === photoId ? set('quantity', quantity) : onPhotosChange(photos.map(item => item.id === photo.id ? {...item, quantity} : item))}/></label>
+              </div>
+              {photo.id !== photoId && <button className="button quiet" aria-label={`Remove photo ${index + 1}`} onClick={() => { if(window.confirm('Remove this photo from the sheet?')) onPhotosChange(photos.filter(item => item.id !== photo.id)) }}>Remove</button>}
+            </div>)}
+            <button className="button secondary full" disabled={collection.length >= 20} onClick={() => { onPhotosChange(collection); onAddPhoto() }}>Add another photo</button>
+            <p>{collection.length} photos · {totalCopies} copies. Add up to 20 photos, then edit each normally.</p>
+          </div>
           <div className="field-row">
             <label>Paper<select value={settings.paper.id} onChange={e => set('paper', PAPERS.find(paper => paper.id === e.target.value) ?? PAPERS[0])}>{(['Document', 'Photo'] as const).map(group => <optgroup key={group} label={`${group} paper`}>{PAPERS.filter(paper => paper.group === group).map(paper => <option key={paper.id} value={paper.id}>{paper.label} · {paper.dimensions}</option>)}</optgroup>)}</select></label>
             <label>Orientation<select value={settings.orientation} onChange={e => set('orientation', e.target.value as 'portrait' | 'landscape')}><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
@@ -112,8 +125,8 @@ export function ExportPanel({ image, size, transform, onTransformChange, setting
             <label className="check"><input type="checkbox" checked={settings.cuttingGuides} onChange={e => set('cuttingGuides', e.target.checked)} />Add cutting guides outside photos</label>
           </div></details>
 
-          {!layout.perPage && <div className="notice error" role="alert">This photo does not fit. Try larger paper or smaller margins.</div>}
-          {settings.quantity > layout.perPage && layout.perPage > 0 && <div className="notice" role="status">{layout.perPage} fit per page. Your {settings.quantity} copies will use {layout.pages} pages.</div>}
+          {layout.unfit.length > 0 && <div className="notice error" role="alert">Some photos do not fit. Try larger paper or smaller margins. PDF download is disabled until every photo fits.</div>}
+          {layout.pages > 1 && <div className="notice" role="status">Your {totalCopies} copies will use {layout.pages} pages.</div>}
         </section>
         </div>
         <div id="export-tool-border" className="editor-tool-panel" hidden={tool!=='border'}><section><h2>Photo border</h2>          <fieldset className="border-picker"><legend>Photo border</legend><div className="border-options">
@@ -142,8 +155,8 @@ export function ExportPanel({ image, size, transform, onTransformChange, setting
       </aside>
     </div>
     <div className="export-download-bar">
-      <div><strong>{layout.pages ? 'Ready to print' : 'Adjust sheet settings'}</strong><p>{settings.paper.label} · {settings.quantity} {settings.quantity === 1 ? 'copy' : 'copies'} · {size.widthMm} × {size.heightMm} mm · 300 DPI · {layout.pages} {layout.pages === 1 ? 'page' : 'pages'}</p>{error && <p className="export-error" role="alert">{error}</p>}</div>
-      <button className="button primary" disabled={busy || !layout.items.length} onClick={() => void pdf()}><FileText />{busy ? 'Preparing download…' : 'Download PDF'}</button>
+      <div><strong>{layout.pages && !layout.unfit.length ? 'Ready to print' : 'Adjust sheet settings'}</strong><p>{settings.paper.label} · {collection.length} photos · {totalCopies} copies · 300 DPI · {layout.pages} {layout.pages === 1 ? 'page' : 'pages'}</p>{error && <p className="export-error" role="alert">{error}</p>}</div>
+      <button className="button primary" disabled={busy || !layout.items.length || layout.unfit.length > 0} onClick={() => void pdf()}><FileText />{busy ? 'Preparing download…' : 'Download PDF'}</button>
     </div>
   </div>
 }
