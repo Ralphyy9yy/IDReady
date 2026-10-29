@@ -1,7 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
 
 test('combines edited photos into one sheet and downloads a PDF',async({page})=>{
-  page.on('dialog',dialog=>void dialog.accept())
+  const unexpectedDialogs:string[]=[]
+  page.on('dialog',dialog=>{
+    if(dialog.message()==='Remove this photo from the sheet?')void dialog.accept()
+    else {unexpectedDialogs.push(dialog.message());void dialog.dismiss()}
+  })
   await page.goto('/')
   await importPhoto(page)
   await page.getByRole('button',{name:'Continue to export',exact:false}).click()
@@ -19,6 +23,21 @@ test('combines edited photos into one sheet and downloads a PDF',async({page})=>
   await page.getByRole('button',{name:'Remove photo 1',exact:true}).click()
   await expect(page.locator('.mixed-photo-row')).toHaveCount(1)
   await expect(page.locator('.sheet-photo')).toHaveCount(2)
+  expect(unexpectedDialogs).toEqual([])
+})
+
+test('ordinary photo replacement still requires confirmation',async({page})=>{
+  await page.goto('/')
+  await importPhoto(page)
+  page.once('dialog',dialog=>void dialog.accept())
+  await page.getByRole('button',{name:'Change photo',exact:false}).click()
+  const dialogEvent=page.waitForEvent('dialog')
+  const upload=page.locator('.drop-zone input[type=file]').setInputFiles(await fixture(page))
+  const dialog=await dialogEvent
+  expect(dialog.message()).toContain('Replace your photo and discard')
+  await dialog.dismiss()
+  await upload
+  await expect(page.getByRole('heading',{name:'Print-ready ID photos, made simple.',exact:true})).toBeVisible()
 })
 
 async function fixture(page:Page) {
