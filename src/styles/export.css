@@ -127,3 +127,5 @@
 .mixed-photo-row p { margin: 4px 0; font-size: 12px; }
 .mixed-photo-row input { max-width: 100px; }
 .mixed-photo-list > button { margin-top: 12px; }
+.start .drop-zone { min-width: 0; }
+@media (max-width: 760px) { .start .drop-zone { display: none; } .desktop-actions { display: none; } }
