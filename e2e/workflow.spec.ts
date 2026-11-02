@@ -1,5 +1,23 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('CSC preset explains size-only scope and handwritten tag requirements',async({page})=>{
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('csc')
+  await expect(page.getByRole('option',{name:'CSC · 35 × 45 mm (size only)',exact:true})).toHaveCount(1)
+  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('at least 80%')
+  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('Four identical')
+  await page.getByRole('button',{name:'Name tag',exact:true}).click()
+  await page.getByLabel('Add a name tag',{exact:true}).check()
+  await page.getByLabel('Full name',{exact:true}).fill('TEST NAME')
+  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('A typed name tag is enabled')
+  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('does not meet this handwritten-tag requirement')
+  await page.getByRole('button',{name:'Back to edit',exact:false}).click()
+  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('2x2')
+  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toHaveCount(0)
+})
+
 test('combines edited photos into one sheet and downloads a PDF',async({page})=>{
   const unexpectedDialogs:string[]=[]
   page.on('dialog',dialog=>{

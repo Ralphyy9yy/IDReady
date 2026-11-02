@@ -1,4 +1,5 @@
 import { NameTagControls } from '../editor/NameTagControls'
+import { CscGuidance } from '../editor/CscGuidance'
 import { PhotoInspector } from './PhotoInspector'
 import { ResolutionNotice } from '../editor/ResolutionNotice'
 import { Download, FileImage, FileText, Printer, ZoomIn, ZoomOut, LayoutGrid, Square, Type } from 'lucide-react'
@@ -92,6 +93,7 @@ export function ExportPanel({ photos, onPhotosChange, photoId, onAddPhoto, image
         </div>
       </section>
       <aside className="controls export-controls">
+        {size.id === 'csc' && <CscGuidance digitalTag={!!transform.nameTag?.enabled}/>}
         <ResolutionNotice image={image} size={size} zoom={transform.zoom}/>
         <div className="editor-tools" role="group" aria-label="Export tools">
           {([{id:'layout',label:'Layout',Icon:LayoutGrid},{id:'border',label:'Border',Icon:Square},{id:'name',label:'Name tag',Icon:Type},{id:'download',label:'Download',Icon:Download}] as const).map(({id,label,Icon})=><button key={id} type="button" aria-pressed={tool===id} aria-controls={`export-tool-${id}`} onClick={()=>setTool(id)}><Icon/><span>{label}</span></button>)}

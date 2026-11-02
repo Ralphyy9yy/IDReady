@@ -11,7 +11,7 @@ export function NameTagControls({transform,onChange}:{transform:Transform;onChan
             <div className="field-row"><label>Text size<select value={nameTag.fontSize} onChange={event => updateNameTag({ fontSize: Number(event.target.value) })}><option value={4}>Small</option><option value={5}>Medium</option><option value={6}>Large</option></select></label>
             <label>Alignment<select value={nameTag.alignment} onChange={event => updateNameTag({ alignment: event.target.value as NameTag['alignment'] })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
             <p>The name tag overlays the bottom of your photo without moving the image. Long text automatically shrinks to fit.</p>
-            <div className="notice">CSC photos require a physical hand-held name tag and handwritten signature. A digital name tag does not replace that requirement.</div>
+            <div className="notice">For the CSC requirements provided, photograph a physical handwritten name tag showing your signature above your printed full name. This computer-generated overlay does not meet that requirement. Check the instructions for your application.</div>
           </>}
         </section>
 }

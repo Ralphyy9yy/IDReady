@@ -21,7 +21,7 @@ const SIZES:PhotoSize[]=[
  {id:'1x1',label:'1 × 1 inch',widthMm:25.4,heightMm:25.4},
  {id:'2x2',label:'2 × 2 inches',widthMm:50.8,heightMm:50.8},
  {id:'35x45',label:'Passport size (PH) · 35 × 45 mm',widthMm:35,heightMm:45},
- {id:'csc',label:'CSC exam · 35 × 45 mm',widthMm:35,heightMm:45},
+ {id:'csc',label:'CSC · 35 × 45 mm (size only)',widthMm:35,heightMm:45},
  {id:'prc-online',label:'PRC online · 2 × 2 inches',widthMm:50.8,heightMm:50.8},
  {id:'1-5x1-5',label:'1½ × 1½ inches',widthMm:38.1,heightMm:38.1},
  {id:'1x1-5',label:'1 × 1½ inches',widthMm:25.4,heightMm:38.1},

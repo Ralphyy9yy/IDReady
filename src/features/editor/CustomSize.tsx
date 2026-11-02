@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
 import type { PhotoSize } from '../../types'
+import { CscGuidance } from './CscGuidance'
 
 const format = (value: number) => String(Number(value.toFixed(4)))
 
@@ -18,6 +19,7 @@ export function CustomSize({size, sizes, onApply}: {size: PhotoSize; sizes: Phot
         setWidth(format(size.widthMm / factor)); setHeight(format(size.heightMm / factor)); setCustom(true)
       } else {setCustom(false); onApply(sizes.find(item => item.id === event.target.value)!)}
     }}>{sizes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}<option value="custom">{size.id === 'custom' ? size.label : 'Custom size…'}</option></select></label>
+    {size.id === 'csc' && <CscGuidance/>}
     {custom && <form onSubmit={event => {
       event.preventDefault()
       if(valid) {onApply({id:'custom', label:`Custom · ${format(w)} × ${format(h)} mm`, widthMm:w, heightMm:h}); setCustom(false)}
