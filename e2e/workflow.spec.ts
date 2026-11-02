@@ -1,5 +1,45 @@
 import { test, expect, type Page } from '@playwright/test'
 
+async function pasteFixture(page:Page, selector='body', invalid=false){
+  const file=await fixture(page)
+  return page.locator(selector).evaluate((target,{base64,invalid})=>{
+    const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0))
+    const transfer=new DataTransfer()
+    transfer.items.add(new File([invalid?'not an image':bytes],'pasted.png',{type:'image/png'}))
+    return target.dispatchEvent(new ClipboardEvent('paste',{clipboardData:transfer,bubbles:true,cancelable:true}))
+  },{base64:file.buffer.toString('base64'),invalid})
+}
+
+test('clipboard images use validation, preserve text fields and respect replacement confirmation',async({page})=>{
+  await page.goto('/')
+  await pasteFixture(page,'body',true)
+  await expect(page.getByRole('alert')).toContainText('Unsupported image')
+  await pasteFixture(page)
+  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
+  await expect(page.locator('.app-notice')).toContainText(/face|position/i,{timeout:120000})
+  await page.getByRole('button',{name:'Name tag',exact:true}).click()
+  await page.getByLabel('Add a name tag',{exact:true}).check()
+  await page.getByLabel('Full name',{exact:true}).fill('KEEP TEXT')
+  expect(await pasteFixture(page,'.name-tag-controls input[placeholder="e.g. JUAN DELA CRUZ"]')).toBe(true)
+  await expect(page.getByLabel('Full name',{exact:true})).toHaveValue('KEEP TEXT')
+  const dialogEvent=page.waitForEvent('dialog')
+  const pasting=pasteFixture(page)
+  const dialog=await dialogEvent
+  expect(dialog.message()).toContain('Replace your photo')
+  await dialog.dismiss();await pasting
+  await expect(page.getByLabel('Full name',{exact:true})).toHaveValue('KEEP TEXT')
+  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await page.getByRole('button',{name:'Add another photo',exact:true}).click()
+  const dialogs:string[]=[]
+  page.on('dialog',dialog=>{dialogs.push(dialog.message());void dialog.dismiss()})
+  await pasteFixture(page)
+  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
+  await expect(page.locator('.app-notice')).toContainText(/face|position/i,{timeout:120000})
+  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
+  expect(dialogs).toEqual([])
+})
+
 test('CSC preset explains size-only scope and handwritten tag requirements',async({page})=>{
   await page.goto('/')
   await importPhoto(page)

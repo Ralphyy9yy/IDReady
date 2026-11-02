@@ -129,3 +129,4 @@
 .mixed-photo-list > button { margin-top: 12px; }
 .start .drop-zone { min-width: 0; }
 @media (max-width: 760px) { .start .drop-zone { display: none; } .desktop-actions { display: none; } }
+.paste-photo-hint { max-width: 1152px; margin: 16px auto 0; padding: 0 24px; color: var(--muted); font-size: 13px; }

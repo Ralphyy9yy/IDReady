@@ -87,6 +87,21 @@ export default function App(){const input=useRef<HTMLInputElement>(null);const j
    setStatus('ASA pair applied. Save a draft to keep both editable portraits and sheet settings.')
  }
  const choose=async(file?:File)=>{if(!file)return;try{await validateImage(file);await load(file)}catch(e){setError(e instanceof Error?e.message:'Invalid image.')}finally{if(input.current)input.current.value=''}}
+ useEffect(()=>{
+   const paste=(event:ClipboardEvent)=>{
+     const target=event.target
+     if(target instanceof Element&&target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return
+     if(camera||settings||document.querySelector('[role="dialog"],dialog[open]'))return
+     const file=Array.from(event.clipboardData?.items??[]).find(item=>item.kind==='file'&&item.type.startsWith('image/'))?.getAsFile()
+       ?? Array.from(event.clipboardData?.files??[]).find(file=>file.type.startsWith('image/'))
+     if(!file)return
+     event.preventDefault()
+     if(saving||processing){setStatus('Please wait for saving or image processing to finish before pasting another photo.');return}
+     void choose(file)
+   }
+   document.addEventListener('paste',paste)
+   return()=>document.removeEventListener('paste',paste)
+ })
  const remove=async()=>{
    if(!original||processing)return
    const ticket=++job.current
@@ -163,6 +178,7 @@ export default function App(){const input=useRef<HTMLInputElement>(null);const j
 
  const next=()=>{if(stage==='edit'&&(!pendingEdits||window.confirm('Discard unapplied crop or cleanup edits and continue to export?')))setStage('export')};const back=()=>{if(stage==='export')setStage('edit');else goHome()}
  return <><Background/><header className="app-header"><Brand onClick={goHome}/><div className="header-actions"><button className={`offline-pill ${offlineReady?'ready':''}`} onClick={()=>setSettings(true)}><span>{offlineReady?<Check/>:<CloudOff/>}</span>{offlineReady?'Offline ready':'Offline setup'}</button><button className="icon-button" onClick={()=>setSettings(true)} aria-label="Settings and help"><Settings/></button></div></header>
+ {stage==='add'&&<p className="paste-photo-hint">Have an image copied? Press Ctrl+V (or ⌘V on Mac) to open it. JPEG, PNG or WebP, up to 25 MB.</p>}
  <nav className="steps" aria-label="Progress">{(['add','edit','export'] as Stage[]).map((s,i)=><button key={s} className={stage===s?'active':sourceBlob&&(['add','edit'].includes(s))?'done':''} onClick={()=>{if(s==='add')goHome();else if(sourceBlob&&(!pendingEdits||s===stage||window.confirm('Discard unapplied crop or cleanup edits and change screen?')))setStage(s)}} disabled={s!=='add'&&!sourceBlob}><span>{i+1}</span>{s==='add'?'Add photo':s==='edit'?'Edit photo':'Export'}</button>)}</nav>
  <main>{sourceBlob&&<div className="draft-save-status" role="status" aria-live="polite"><span>{saving?'Saving draft…':pendingEdits?'Unapplied edits — Apply or cancel to save':dirty?'Unsaved changes':`Saved on this device at ${new Date(savedState!.savedAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`}</span>{stage!=='edit'&&<button className="button secondary" disabled={saving||processing||pendingEdits} onClick={save}><Save/>Save draft</button>}</div>}{stage==='add'&&<section className="start"><div className="start-copy"><h1>Print-ready ID photos, made simple.</h1><p>Take or upload a photo, choose your size, and prepare a printable sheet.</p><div className="start-actions"><button className="button primary large" onClick={()=>setCamera(true)}><Camera/>Take photo</button><button className="button secondary large" onClick={()=>input.current?.click()}><Upload/>Upload photo</button></div>{draft&&<a className="resume" href="#saved-drafts">View saved drafts <ChevronRight/></a>}<p className="privacy"><Lock/>Photos are processed in your browser and are never uploaded by IDReady.</p></div><label className="drop-zone" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();void choose(e.dataTransfer.files[0])}}><ImagePlus/><strong>Drop a photo here</strong><span>JPEG, PNG or WebP · up to 25 MB</span><input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>void choose(e.target.files?.[0])}/></label><div className="guidance"><h2>For a better result</h2><ul><li>Face the camera</li><li>Use even lighting</li><li>Keep head and shoulders visible</li><li>Avoid strong shadows</li></ul></div><div id="saved-drafts" style={{gridColumn:'1 / -1'}}><DraftGallery drafts={drafts} onResume={id=>void resume(id)} onDelete={id=>void deleteSaved(id)}/></div>{error&&<div className="notice error" role="alert">{error}</div>}</section>}
  {stage==='edit'&&image&&original&&<><div className="page-title"><div><button className="back-link" onClick={back}><ChevronLeft/>Change photo</button><h1>Edit photo</h1></div></div><Editor onPendingChange={setPendingEdits} pairBuilder={size.id==='asa'&&<PairBuilder key={documentVersion} initialPair={asaPair} onChange={setAsaPair} onUse={applyPair}/>} sizeControl={<CustomSize size={size} sizes={SIZES} onApply={setSize}/>} image={image} original={original} size={size} transform={transform} onChange={setTransform} onRemove={remove} processing={processing} bgError={bgError} processed={!!processedBlob} showOriginal={showOriginal} onShowOriginal={setShowOriginal} onApply={applyCleanup}/><div className="desktop-actions"><button className="button secondary" disabled={saving||processing||pendingEdits} onClick={save}><Save/>Save draft</button><button className="button primary" onClick={next}>Continue to export<ChevronRight/></button></div></>}
