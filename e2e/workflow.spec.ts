@@ -1,568 +1,776 @@
 import { test, expect, type Page } from '@playwright/test'
 
-test('mobile background removal and touch cleanup work without OffscreenCanvas',async({browser})=>{
-  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true})
+test('mobile background removal and touch cleanup work without OffscreenCanvas', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  })
   try {
-    await context.addInitScript(()=>{Object.defineProperty(globalThis,'OffscreenCanvas',{value:undefined,configurable:true})})
-    const page=await context.newPage()
+    await context.addInitScript(() => {
+      Object.defineProperty(globalThis, 'OffscreenCanvas', { value: undefined, configurable: true })
+    })
+    const page = await context.newPage()
     await page.goto('http://127.0.0.1:4175/')
     await importPhoto(page)
-    await page.getByRole('button',{name:'Background',exact:true}).tap()
-    await page.getByRole('button',{name:'Remove background',exact:true}).tap()
-    await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toBeEnabled({timeout:120000})
+    await page.getByRole('button', { name: 'Background', exact: true }).tap()
+    await page.getByRole('button', { name: 'Remove background', exact: true }).tap()
+    await expect(
+      page.getByRole('button', { name: 'Retry background removal', exact: true }),
+    ).toBeEnabled({ timeout: 120000 })
     await expect(page.locator('.app-notice')).toContainText('Background removed')
     expect(page.workers()).toHaveLength(0)
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
-    await page.getByRole('button',{name:'Clean up edges',exact:true}).tap()
-    const canvas=page.locator('.inline-cleanup canvas')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.getByRole('button', { name: 'Clean up edges', exact: true }).tap()
+    const canvas = page.locator('.inline-cleanup canvas')
     await canvas.scrollIntoViewIfNeeded()
-    const box=(await canvas.boundingBox())!
-    const stroke=()=>page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2)
+    const box = (await canvas.boundingBox())!
+    const stroke = () => page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
     await stroke()
-    await expect(page.getByRole('button',{name:'Undo stroke'})).toBeEnabled()
-    const erased=await canvas.evaluate(element=>(element as HTMLCanvasElement).toDataURL())
-    await page.getByRole('button',{name:'Restore',exact:true}).tap()
+    await expect(page.getByRole('button', { name: 'Undo stroke' })).toBeEnabled()
+    const erased = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL())
+    await page.getByRole('button', { name: 'Restore', exact: true }).tap()
     await stroke()
-    expect(await canvas.evaluate(element=>(element as HTMLCanvasElement).toDataURL())).not.toBe(erased)
-    await page.getByRole('button',{name:'Apply cleanup',exact:true}).tap()
+    expect(await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL())).not.toBe(
+      erased,
+    )
+    await page.getByRole('button', { name: 'Apply cleanup', exact: true }).tap()
     await expect(page.locator('.app-notice')).toContainText('Cleanup applied')
-    await page.getByRole('button',{name:'Continue to export',exact:false}).tap()
-    const download=page.waitForEvent('download')
-    await page.getByRole('button',{name:'Download PDF',exact:true}).tap()
+    await page.getByRole('button', { name: 'Continue to export', exact: false }).tap()
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download PDF', exact: true }).tap()
     expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
-  } finally { await context.close() }
+  } finally {
+    await context.close()
+  }
 })
 
-async function pasteFixture(page:Page, selector='body', invalid=false){
-  const file=await fixture(page)
-  return page.locator(selector).evaluate((target,{base64,invalid})=>{
-    const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0))
-    const transfer=new DataTransfer()
-    transfer.items.add(new File([invalid?'not an image':bytes],'pasted.png',{type:'image/png'}))
-    return target.dispatchEvent(new ClipboardEvent('paste',{clipboardData:transfer,bubbles:true,cancelable:true}))
-  },{base64:file.buffer.toString('base64'),invalid})
+async function pasteFixture(page: Page, selector = 'body', invalid = false) {
+  const file = await fixture(page)
+  return page.locator(selector).evaluate(
+    (target, { base64, invalid }) => {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+      const transfer = new DataTransfer()
+      transfer.items.add(
+        new File([invalid ? 'not an image' : bytes], 'pasted.png', { type: 'image/png' }),
+      )
+      return target.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }),
+      )
+    },
+    { base64: file.buffer.toString('base64'), invalid },
+  )
 }
 
-test('clipboard images use validation, preserve text fields and respect replacement confirmation',async({page})=>{
+test('clipboard images use validation, preserve text fields and respect replacement confirmation', async ({
+  page,
+}) => {
   await page.goto('/')
-  await pasteFixture(page,'body',true)
+  await pasteFixture(page, 'body', true)
   await expect(page.getByRole('alert')).toContainText('Unsupported image')
   await pasteFixture(page)
-  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
-  await expect(page.locator('.app-notice')).toContainText(/face|position/i,{timeout:120000})
-  await page.getByRole('button',{name:'Name tag',exact:true}).click()
-  await page.getByLabel('Add a name tag',{exact:true}).check()
-  await page.getByLabel('Full name',{exact:true}).fill('KEEP TEXT')
-  expect(await pasteFixture(page,'.name-tag-controls input[placeholder="e.g. JUAN DELA CRUZ"]')).toBe(true)
-  await expect(page.getByLabel('Full name',{exact:true})).toHaveValue('KEEP TEXT')
-  const dialogEvent=page.waitForEvent('dialog')
-  const pasting=pasteFixture(page)
-  const dialog=await dialogEvent
+  await expect(page.getByRole('heading', { name: 'Edit photo', exact: true })).toBeVisible()
+  await expect(page.locator('.app-notice')).toContainText(/face|position/i, { timeout: 120000 })
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('KEEP TEXT')
+  expect(
+    await pasteFixture(page, '.name-tag-controls input[placeholder="e.g. JUAN DELA CRUZ"]'),
+  ).toBe(true)
+  await expect(page.getByLabel('Full name', { exact: true })).toHaveValue('KEEP TEXT')
+  const dialogEvent = page.waitForEvent('dialog')
+  const pasting = pasteFixture(page)
+  const dialog = await dialogEvent
   expect(dialog.message()).toContain('Replace your photo')
-  await dialog.dismiss();await pasting
-  await expect(page.getByLabel('Full name',{exact:true})).toHaveValue('KEEP TEXT')
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await page.getByRole('button',{name:'Add another photo',exact:true}).click()
-  const dialogs:string[]=[]
-  page.on('dialog',dialog=>{dialogs.push(dialog.message());void dialog.dismiss()})
+  await dialog.dismiss()
+  await pasting
+  await expect(page.getByLabel('Full name', { exact: true })).toHaveValue('KEEP TEXT')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  const dialogs: string[] = []
+  page.on('dialog', (dialog) => {
+    dialogs.push(dialog.message())
+    void dialog.dismiss()
+  })
   await pasteFixture(page)
-  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
-  await expect(page.locator('.app-notice')).toContainText(/face|position/i,{timeout:120000})
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await expect(page.getByRole('heading', { name: 'Edit photo', exact: true })).toBeVisible()
+  await expect(page.locator('.app-notice')).toContainText(/face|position/i, { timeout: 120000 })
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
   await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
   expect(dialogs).toEqual([])
 })
 
-test('CSC preset explains size-only scope and handwritten tag requirements',async({page})=>{
+test('CSC preset explains size-only scope and handwritten tag requirements', async ({ page }) => {
   await page.goto('/')
   await importPhoto(page)
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('csc')
-  await expect(page.getByRole('option',{name:'CSC · 35 × 45 mm (size only)',exact:true})).toHaveCount(1)
-  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('at least 80%')
-  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('Four identical')
-  await page.getByRole('button',{name:'Name tag',exact:true}).click()
-  await page.getByLabel('Add a name tag',{exact:true}).check()
-  await page.getByLabel('Full name',{exact:true}).fill('TEST NAME')
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('A typed name tag is enabled')
-  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toContainText('does not meet this handwritten-tag requirement')
-  await page.getByRole('button',{name:'Back to edit',exact:false}).click()
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('2x2')
-  await expect(page.getByRole('complementary',{name:'CSC photo guidance'})).toHaveCount(0)
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('csc')
+  await expect(
+    page.getByRole('option', { name: 'CSC · 35 × 45 mm (size only)', exact: true }),
+  ).toHaveCount(1)
+  await expect(page.getByRole('complementary', { name: 'CSC photo guidance' })).toContainText(
+    'at least 80%',
+  )
+  await expect(page.getByRole('complementary', { name: 'CSC photo guidance' })).toContainText(
+    'Four identical',
+  )
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('TEST NAME')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByRole('complementary', { name: 'CSC photo guidance' })).toContainText(
+    'A typed name tag is enabled',
+  )
+  await expect(page.getByRole('complementary', { name: 'CSC photo guidance' })).toContainText(
+    'does not meet this handwritten-tag requirement',
+  )
+  await page.getByRole('button', { name: 'Back to edit', exact: false }).click()
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('2x2')
+  await expect(page.getByRole('complementary', { name: 'CSC photo guidance' })).toHaveCount(0)
 })
 
-test('combines edited photos into one sheet and downloads a PDF',async({page})=>{
-  const unexpectedDialogs:string[]=[]
-  page.on('dialog',dialog=>{
-    if(dialog.message()==='Remove this photo from the sheet?')void dialog.accept()
-    else {unexpectedDialogs.push(dialog.message());void dialog.dismiss()}
+test('combines edited photos into one sheet and downloads a PDF', async ({ page }) => {
+  const unexpectedDialogs: string[] = []
+  page.on('dialog', (dialog) => {
+    if (dialog.message() === 'Remove this photo from the sheet?') void dialog.accept()
+    else {
+      unexpectedDialogs.push(dialog.message())
+      void dialog.dismiss()
+    }
   })
   await page.goto('/')
   await importPhoto(page)
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await expect(page.getByLabel('Copies',{exact:true})).toHaveCount(0)
-  await expect(page.getByRole('button',{name:'Inspect photo',exact:true})).toHaveCount(1)
-  await page.getByLabel('Photo 1 copies',{exact:true}).fill('3')
-  await page.getByRole('button',{name:'Add another photo',exact:true}).click()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByLabel('Copies', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Inspect photo', exact: true })).toHaveCount(1)
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('3')
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
   await importPhoto(page)
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
   await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
-  await expect(page.getByLabel('Photo 1 copies',{exact:true})).toHaveValue('3')
-  await page.getByLabel('Photo 2 copies',{exact:true}).fill('2')
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('3')
+  await page.getByLabel('Photo 2 copies', { exact: true }).fill('2')
   await expect(page.locator('.sheet-photo')).toHaveCount(5)
-  const download=page.waitForEvent('download')
-  await page.getByRole('button',{name:'Download PDF',exact:true}).click()
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
-  await page.getByRole('button',{name:'Remove photo 1',exact:true}).click()
+  await page.getByRole('button', { name: 'Remove photo 1', exact: true }).click()
   await expect(page.locator('.mixed-photo-row')).toHaveCount(1)
   await expect(page.locator('.sheet-photo')).toHaveCount(2)
   expect(unexpectedDialogs).toEqual([])
 })
 
-test('ordinary photo replacement still requires confirmation',async({page})=>{
+test('ordinary photo replacement still requires confirmation', async ({ page }) => {
   await page.goto('/')
   await importPhoto(page)
-  page.once('dialog',dialog=>void dialog.accept())
-  await page.getByRole('button',{name:'Change photo',exact:false}).click()
-  const dialogEvent=page.waitForEvent('dialog')
-  const upload=page.locator('.drop-zone input[type=file]').setInputFiles(await fixture(page))
-  const dialog=await dialogEvent
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: 'Change photo', exact: false }).click()
+  const dialogEvent = page.waitForEvent('dialog')
+  const upload = page.locator('.drop-zone input[type=file]').setInputFiles(await fixture(page))
+  const dialog = await dialogEvent
   expect(dialog.message()).toContain('Replace your photo and discard')
   await dialog.dismiss()
   await upload
-  await expect(page.getByRole('heading',{name:'Print-ready ID photos, made simple.',exact:true})).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Print-ready ID photos, made simple.', exact: true }),
+  ).toBeVisible()
 })
 
-async function fixture(page:Page) {
-  const data=await page.evaluate(()=>{
-    const canvas=document.createElement('canvas');canvas.width=600;canvas.height=600
-    const ctx=canvas.getContext('2d')!;ctx.fillStyle='#f5e6cd';ctx.fillRect(0,0,600,600)
-    ctx.fillStyle='#2458db';ctx.fillRect(150,270,300,330);ctx.fillStyle='#8d6043';ctx.beginPath();ctx.arc(300,180,100,0,Math.PI*2);ctx.fill()
+async function fixture(page: Page) {
+  const data = await page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 600
+    canvas.height = 600
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#f5e6cd'
+    ctx.fillRect(0, 0, 600, 600)
+    ctx.fillStyle = '#2458db'
+    ctx.fillRect(150, 270, 300, 330)
+    ctx.fillStyle = '#8d6043'
+    ctx.beginPath()
+    ctx.arc(300, 180, 100, 0, Math.PI * 2)
+    ctx.fill()
     return canvas.toDataURL('image/png').split(',')[1]
   })
-  return {name:'synthetic-portrait.png',mimeType:'image/png',buffer:Buffer.from(data,'base64')}
+  return {
+    name: 'synthetic-portrait.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(data, 'base64'),
+  }
 }
-async function importPhoto(page:Page) {
+async function importPhoto(page: Page) {
   await page.locator('.drop-zone input[type=file]').setInputFiles(await fixture(page))
-  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
-  await expect(page.locator('.app-notice')).toContainText(/face|position/i,{timeout:120000})
+  await expect(page.getByRole('heading', { name: 'Edit photo', exact: true })).toBeVisible()
+  await expect(page.locator('.app-notice')).toContainText(/face|position/i, { timeout: 120000 })
 }
 
-test('complete ASA drafts restore editable portraits and all export settings after reload',async({page})=>{
+test('complete ASA drafts restore editable portraits and all export settings after reload', async ({
+  page,
+}) => {
   await page.goto('/')
   await importPhoto(page)
-  page.on('dialog',dialog=>void dialog.accept(dialog.type()==='prompt'?'Editable ASA job':undefined))
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('asa')
-  await page.getByText('Build an ASA pair from two photos',{exact:true}).click()
-  const portrait=await fixture(page)
-  await page.getByLabel('Person 1',{exact:true}).setInputFiles(portrait)
-  await page.getByLabel('Person 2',{exact:true}).setInputFiles(portrait)
-  await expect(page.getByRole('button',{name:'Use this pair',exact:true})).toBeEnabled()
-  const zoom=async(value:string)=>page.getByLabel('Portrait zoom',{exact:true}).evaluate((element,value)=>{
-    const input=element as HTMLInputElement
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value)
-    input.dispatchEvent(new Event('input',{bubbles:true}))
-  },value)
-  await page.getByRole('button',{name:'Right',exact:true}).click()
+  page.on(
+    'dialog',
+    (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Editable ASA job' : undefined),
+  )
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('asa')
+  await page.getByText('Build an ASA pair from two photos', { exact: true }).click()
+  const portrait = await fixture(page)
+  await page.getByLabel('Person 1', { exact: true }).setInputFiles(portrait)
+  await page.getByLabel('Person 2', { exact: true }).setInputFiles(portrait)
+  await expect(page.getByRole('button', { name: 'Use this pair', exact: true })).toBeEnabled()
+  const zoom = async (value: string) =>
+    page.getByLabel('Portrait zoom', { exact: true }).evaluate((element, value) => {
+      const input = element as HTMLInputElement
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }, value)
+  await page.getByRole('button', { name: 'Right', exact: true }).click()
   await zoom('1.6')
-  await page.getByRole('button',{name:'Left',exact:true}).click()
+  await page.getByRole('button', { name: 'Left', exact: true }).click()
   await zoom('1.3')
-  await expect(page.getByLabel('Portrait zoom',{exact:true})).toHaveValue('1.3')
-  const pairPixels=await page.locator('.pair-combined').evaluate(element=>(element as HTMLCanvasElement).toDataURL())
-  await page.getByRole('button',{name:'Use this pair',exact:true}).click()
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await page.getByRole('combobox',{name:'Paper',exact:true}).selectOption('letter')
-  await page.getByRole('combobox',{name:'Orientation',exact:true}).selectOption('landscape')
-  await page.getByLabel('Photo 1 copies',{exact:true}).fill('12')
-  await page.getByLabel('Gap (mm)',{exact:true}).fill('2.5')
-  await page.getByText('Margins & cutting guides',{exact:true}).click()
-  await page.getByLabel('Safe margin (mm)',{exact:true}).fill('8')
-  await page.getByLabel('Add cutting guides outside photos',{exact:true}).uncheck()
-  await page.getByRole('button',{name:'Save draft',exact:true}).click()
+  await expect(page.getByLabel('Portrait zoom', { exact: true })).toHaveValue('1.3')
+  const pairPixels = await page
+    .locator('.pair-combined')
+    .evaluate((element) => (element as HTMLCanvasElement).toDataURL())
+  await page.getByRole('button', { name: 'Use this pair', exact: true }).click()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('letter')
+  await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption('landscape')
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('12')
+  await page.getByLabel('Gap (mm)', { exact: true }).fill('2.5')
+  await page.getByText('Margins & cutting guides', { exact: true }).click()
+  await page.getByLabel('Safe margin (mm)', { exact: true }).fill('8')
+  await page.getByLabel('Add cutting guides outside photos', { exact: true }).uncheck()
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
   await page.reload()
-  await page.getByRole('button',{name:'Resume',exact:true}).click()
-  await expect(page.getByRole('heading',{name:'Export & print',exact:true})).toBeVisible()
-  await expect(page.getByRole('combobox',{name:'Paper',exact:true})).toHaveValue('letter')
-  await expect(page.getByRole('combobox',{name:'Orientation',exact:true})).toHaveValue('landscape')
-  await expect(page.getByLabel('Photo 1 copies',{exact:true})).toHaveValue('12')
-  await expect(page.getByLabel('Gap (mm)',{exact:true})).toHaveValue('2.5')
-  await page.getByText('Margins & cutting guides',{exact:true}).click()
-  await expect(page.getByLabel('Safe margin (mm)',{exact:true})).toHaveValue('8')
-  await expect(page.getByLabel('Add cutting guides outside photos',{exact:true})).not.toBeChecked()
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Export & print', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Paper', exact: true })).toHaveValue('letter')
+  await expect(page.getByRole('combobox', { name: 'Orientation', exact: true })).toHaveValue(
+    'landscape',
+  )
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('12')
+  await expect(page.getByLabel('Gap (mm)', { exact: true })).toHaveValue('2.5')
+  await page.getByText('Margins & cutting guides', { exact: true }).click()
+  await expect(page.getByLabel('Safe margin (mm)', { exact: true })).toHaveValue('8')
+  await expect(
+    page.getByLabel('Add cutting guides outside photos', { exact: true }),
+  ).not.toBeChecked()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
-  await page.getByRole('button',{name:'Back to edit',exact:true}).click()
-  await page.getByText('Build an ASA pair from two photos',{exact:true}).click()
-  await expect(page.getByRole('button',{name:'Use this pair',exact:true})).toBeEnabled()
-  await expect(page.getByLabel('Portrait zoom',{exact:true})).toHaveValue('1.3')
-  expect(await page.locator('.pair-combined').evaluate(element=>(element as HTMLCanvasElement).toDataURL())).toBe(pairPixels)
-  await page.getByRole('button',{name:'Right',exact:true}).click()
-  await expect(page.getByLabel('Portrait zoom',{exact:true})).toHaveValue('1.6')
+  await page.getByRole('button', { name: 'Back to edit', exact: true }).click()
+  await page.getByText('Build an ASA pair from two photos', { exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Use this pair', exact: true })).toBeEnabled()
+  await expect(page.getByLabel('Portrait zoom', { exact: true })).toHaveValue('1.3')
+  expect(
+    await page
+      .locator('.pair-combined')
+      .evaluate((element) => (element as HTMLCanvasElement).toDataURL()),
+  ).toBe(pairPixels)
+  await page.getByRole('button', { name: 'Right', exact: true }).click()
+  await expect(page.getByLabel('Portrait zoom', { exact: true })).toHaveValue('1.6')
   await zoom('1.8')
   await expect(page.locator('.draft-save-status')).toContainText('Unsaved changes')
-  await page.getByRole('button',{name:'Save draft',exact:true}).click()
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
   await page.reload()
-  await page.getByRole('button',{name:'Resume',exact:true}).click()
-  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
-  await page.getByText('Build an ASA pair from two photos',{exact:true}).click()
-  await expect(page.getByRole('button',{name:'Use this pair',exact:true})).toBeEnabled()
-  await page.getByRole('button',{name:'Right',exact:true}).click()
-  await expect(page.getByLabel('Portrait zoom',{exact:true})).toHaveValue('1.8')
-  await page.getByRole('button',{name:'Use this pair',exact:true}).click()
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await expect(page.getByRole('combobox',{name:'Paper',exact:true})).toHaveValue('letter')
-  await expect(page.getByLabel('Photo 1 copies',{exact:true})).toHaveValue('12')
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Edit photo', exact: true })).toBeVisible()
+  await page.getByText('Build an ASA pair from two photos', { exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Use this pair', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Right', exact: true }).click()
+  await expect(page.getByLabel('Portrait zoom', { exact: true })).toHaveValue('1.8')
+  await page.getByRole('button', { name: 'Use this pair', exact: true }).click()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByRole('combobox', { name: 'Paper', exact: true })).toHaveValue('letter')
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('12')
 })
 
-test('settings tabs, keyboard navigation and fixed header work at mobile sizes',async({page},testInfo)=>{
+test('settings tabs, keyboard navigation and fixed header work at mobile sizes', async ({
+  page,
+}, testInfo) => {
   await page.goto('/')
-  await page.getByRole('button',{name:'Settings and help'}).click()
-  const settings=page.getByRole('dialog',{name:'Offline & privacy',exact:true})
+  await page.getByRole('button', { name: 'Settings and help' }).click()
+  const settings = page.getByRole('dialog', { name: 'Offline & privacy', exact: true })
   await expect(settings).toBeVisible()
-  await expect(page.getByRole('tab',{name:'Offline',exact:true})).toHaveAttribute('aria-selected','true')
-  await expect(page.getByRole('button',{name:'Remove downloaded AI files',exact:true})).toHaveCount(0)
-  await page.getByRole('tab',{name:'Offline',exact:true}).focus()
+  await expect(page.getByRole('tab', { name: 'Offline', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(
+    page.getByRole('button', { name: 'Remove downloaded AI files', exact: true }),
+  ).toHaveCount(0)
+  await page.getByRole('tab', { name: 'Offline', exact: true }).focus()
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab',{name:'Saved drafts',exact:true})).toBeFocused()
-  await expect(page.getByRole('heading',{name:'Saved on this device',exact:true})).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Saved drafts', exact: true })).toBeFocused()
+  await expect(
+    page.getByRole('heading', { name: 'Saved on this device', exact: true }),
+  ).toBeVisible()
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('heading',{name:'Privacy',exact:true})).toBeVisible()
-  await page.getByRole('tab',{name:'Offline',exact:true}).click()
-  for(const width of [1280,375]){
-    await page.setViewportSize({width,height:740})
-    await page.getByText('How offline mode works',{exact:true}).click()
-    await page.getByText('Downloaded file storage',{exact:true}).click()
-    expect(await settings.locator('.settings-content').evaluate(element=>element.scrollHeight>element.clientHeight)).toBe(true)
-    const before=await settings.getByRole('button',{name:'Close',exact:true}).boundingBox()
-    await settings.locator('.settings-content').evaluate(element=>{element.scrollTop=element.scrollHeight})
-    const after=await settings.getByRole('button',{name:'Close',exact:true}).boundingBox()
-    expect(after!.y).toBeCloseTo(before!.y,0)
+  await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Offline', exact: true }).click()
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 740 })
+    await page.getByText('How offline mode works', { exact: true }).click()
+    await page.getByText('Downloaded file storage', { exact: true }).click()
+    expect(
+      await settings
+        .locator('.settings-content')
+        .evaluate((element) => element.scrollHeight > element.clientHeight),
+    ).toBe(true)
+    const before = await settings.getByRole('button', { name: 'Close', exact: true }).boundingBox()
+    await settings.locator('.settings-content').evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const after = await settings.getByRole('button', { name: 'Close', exact: true }).boundingBox()
+    expect(after!.y).toBeCloseTo(before!.y, 0)
     expect(after!.y).toBeGreaterThanOrEqual(0)
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
-    await settings.locator('.settings-content').evaluate(element=>{element.scrollTop=0})
-    await page.getByText('How offline mode works',{exact:true}).click()
-    await page.getByText('Downloaded file storage',{exact:true}).click()
-    await settings.locator('.settings-content').evaluate(element=>{element.scrollTop=0})
-    await page.screenshot({path:testInfo.outputPath(`settings-${width}.png`)})
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await settings.locator('.settings-content').evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await page.getByText('How offline mode works', { exact: true }).click()
+    await page.getByText('Downloaded file storage', { exact: true }).click()
+    await settings.locator('.settings-content').evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await page.screenshot({ path: testInfo.outputPath(`settings-${width}.png`) })
   }
   await page.keyboard.press('Escape')
   await expect(settings).toHaveCount(0)
-  await expect(page.getByRole('button',{name:'Settings and help'})).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Settings and help' })).toBeFocused()
 })
 
-test('unsaved edits warn on navigation and replacement, and save status tracks changes',async({page})=>{
+test('unsaved edits warn on navigation and replacement, and save status tracks changes', async ({
+  page,
+}) => {
   await page.goto('/')
   await importPhoto(page)
   await expect(page.locator('.draft-save-status')).toContainText('Unsaved changes')
-  page.on('dialog',dialog=>void dialog.accept(dialog.type()==='prompt'?'Safety test':undefined))
-  await page.getByRole('button',{name:'Save draft',exact:true}).click()
+  page.on(
+    'dialog',
+    (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Safety test' : undefined),
+  )
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
   page.removeAllListeners('dialog')
-  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
+  await page.getByRole('button', { name: 'Open crop frame', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Unapplied edits')
-  await expect(page.getByRole('button',{name:'Save draft',exact:true})).toBeDisabled()
-  page.once('dialog',dialog=>void dialog.dismiss())
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await expect(page.getByRole('button',{name:'Cancel crop',exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'Cancel crop',exact:true}).click()
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeDisabled()
+  page.once('dialog', (dialog) => void dialog.dismiss())
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByRole('button', { name: 'Cancel crop', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel crop', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('wallet')
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('wallet')
   await expect(page.locator('.draft-save-status')).toContainText('Unsaved changes')
-  page.once('dialog',dialog=>void dialog.dismiss())
-  await page.getByRole('button',{name:'IDReady home'}).click()
-  await expect(page.getByRole('heading',{name:'Edit photo',exact:true})).toBeVisible()
-  page.once('dialog',dialog=>void dialog.accept())
-  await page.getByRole('button',{name:'IDReady home'}).click()
-  page.once('dialog',dialog=>void dialog.dismiss())
+  page.once('dialog', (dialog) => void dialog.dismiss())
+  await page.getByRole('button', { name: 'IDReady home' }).click()
+  await expect(page.getByRole('heading', { name: 'Edit photo', exact: true })).toBeVisible()
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: 'IDReady home' }).click()
+  page.once('dialog', (dialog) => void dialog.dismiss())
   await page.locator('.drop-zone input[type=file]').setInputFiles(await fixture(page))
-  await expect(page.getByRole('heading',{name:'Print-ready ID photos, made simple.'})).toBeVisible()
-  await page.getByRole('button',{name:'2 Edit photo',exact:true}).click()
-  await expect(page.getByRole('combobox',{name:'Photo size',exact:true})).toHaveValue('wallet')
+  await expect(
+    page.getByRole('heading', { name: 'Print-ready ID photos, made simple.' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: '2 Edit photo', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: 'Photo size', exact: true })).toHaveValue(
+    'wallet',
+  )
 })
 
-test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF',async({page},testInfo)=>{
+test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', async ({
+  page,
+}, testInfo) => {
   await page.goto('/')
   await importPhoto(page)
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('wallet')
-  await expect(page.getByRole('heading',{name:'Position & crop'}).locator('..')).toContainText('63.5 × 88.9 mm')
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('35x45')
-  await page.locator('input[type=range]').first().evaluate(element=>{
-    const input=element as HTMLInputElement
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'1.5')
-    input.dispatchEvent(new Event('input',{bubbles:true}))
-  })
-  page.on('dialog',dialog=>void dialog.accept(dialog.type()==='prompt'?'Family photo':undefined))
-  await page.getByRole('button',{name:'Save draft',exact:true}).click()
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('wallet')
+  await expect(page.getByRole('heading', { name: 'Position & crop' }).locator('..')).toContainText(
+    '63.5 × 88.9 mm',
+  )
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('35x45')
+  await page
+    .locator('input[type=range]')
+    .first()
+    .evaluate((element) => {
+      const input = element as HTMLInputElement
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '1.5')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  page.on(
+    'dialog',
+    (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Family photo' : undefined),
+  )
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
   await expect(page.locator('.app-notice')).toContainText('Draft saved')
-  await page.getByRole('button',{name:'IDReady home'}).click()
+  await page.getByRole('button', { name: 'IDReady home' }).click()
   await importPhoto(page)
-  await page.getByRole('button',{name:'Save draft',exact:true}).click()
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
   await expect(page.locator('.app-notice')).toContainText('Draft saved')
-  await page.getByRole('button',{name:'IDReady home'}).click()
+  await page.getByRole('button', { name: 'IDReady home' }).click()
   await expect(page.locator('.draft-item')).toHaveCount(2)
   page.removeAllListeners('dialog')
-  page.once('dialog',dialog=>void dialog.dismiss())
-  await page.locator('.draft-item').first().getByRole('button',{name:'Delete Family photo'}).click()
+  page.once('dialog', (dialog) => void dialog.dismiss())
+  await page
+    .locator('.draft-item')
+    .first()
+    .getByRole('button', { name: 'Delete Family photo' })
+    .click()
   await expect(page.locator('.draft-item')).toHaveCount(2)
-  page.once('dialog',dialog=>void dialog.accept())
-  await page.locator('.draft-item').first().getByRole('button',{name:'Delete Family photo'}).click()
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page
+    .locator('.draft-item')
+    .first()
+    .getByRole('button', { name: 'Delete Family photo' })
+    .click()
   await expect(page.locator('.draft-item')).toHaveCount(1)
-  page.on('dialog',dialog=>void dialog.accept())
-  await page.locator('.draft-item').last().getByRole('button',{name:'Resume',exact:true}).click()
+  page.on('dialog', (dialog) => void dialog.accept())
+  await page
+    .locator('.draft-item')
+    .last()
+    .getByRole('button', { name: 'Resume', exact: true })
+    .click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('1.5')
-  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
-  await page.screenshot({path:testInfo.outputPath('crop-frame.png')})
-  await page.getByLabel('Crop zoom',{exact:true}).evaluate(element=>{
-    const input=element as HTMLInputElement
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'2')
-    input.dispatchEvent(new Event('input',{bubbles:true}))
+  await page.getByRole('button', { name: 'Open crop frame', exact: true }).click()
+  await page.screenshot({ path: testInfo.outputPath('crop-frame.png') })
+  await page.getByLabel('Crop zoom', { exact: true }).evaluate((element) => {
+    const input = element as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '2')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  await page.getByRole('button',{name:'Cancel crop',exact:true}).click()
+  await page.getByRole('button', { name: 'Cancel crop', exact: true }).click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('1.5')
-  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
-  await page.getByLabel('Crop zoom',{exact:true}).evaluate(element=>{
-    const input=element as HTMLInputElement
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'2')
-    input.dispatchEvent(new Event('input',{bubbles:true}))
+  await page.getByRole('button', { name: 'Open crop frame', exact: true }).click()
+  await page.getByLabel('Crop zoom', { exact: true }).evaluate((element) => {
+    const input = element as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '2')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  await page.getByRole('button',{name:'Apply crop',exact:true}).click()
+  await page.getByRole('button', { name: 'Apply crop', exact: true }).click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('2')
   await expect(page.locator('.resolution-notice')).toContainText('source pixels per inch')
-  await page.getByRole('button',{name:'Open crop frame',exact:true}).click()
-  await page.getByRole('button',{name:'Reset crop',exact:true}).click()
-  await page.getByRole('button',{name:'Apply crop',exact:true}).click()
+  await page.getByRole('button', { name: 'Open crop frame', exact: true }).click()
+  await page.getByRole('button', { name: 'Reset crop', exact: true }).click()
+  await page.getByRole('button', { name: 'Apply crop', exact: true }).click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('1')
-  await expect(page.getByRole('heading',{name:'Custom photo dimensions'})).toHaveCount(0)
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('custom')
-  await page.getByLabel('Width',{exact:true}).fill('')
-  await expect(page.getByRole('button',{name:'Apply dimensions'})).toBeDisabled()
-  await page.getByLabel('Width',{exact:true}).fill('25.4')
-  await page.getByLabel('Height',{exact:true}).fill('50.8')
-  await page.getByRole('combobox',{name:'Units',exact:true}).selectOption('in')
-  await expect(page.getByLabel('Width',{exact:true})).toHaveValue('1')
-  await expect(page.getByLabel('Height',{exact:true})).toHaveValue('2')
-  await page.getByRole('button',{name:'Swap width and height'}).click()
-  await expect(page.getByLabel('Width',{exact:true})).toHaveValue('2')
-  await expect(page.getByLabel('Height',{exact:true})).toHaveValue('1')
-  await page.getByRole('combobox',{name:'Units',exact:true}).selectOption('mm')
-  await expect(page.getByLabel('Width',{exact:true})).toHaveValue('50.8')
+  await expect(page.getByRole('heading', { name: 'Custom photo dimensions' })).toHaveCount(0)
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('custom')
+  await page.getByLabel('Width', { exact: true }).fill('')
+  await expect(page.getByRole('button', { name: 'Apply dimensions' })).toBeDisabled()
+  await page.getByLabel('Width', { exact: true }).fill('25.4')
+  await page.getByLabel('Height', { exact: true }).fill('50.8')
+  await page.getByRole('combobox', { name: 'Units', exact: true }).selectOption('in')
+  await expect(page.getByLabel('Width', { exact: true })).toHaveValue('1')
+  await expect(page.getByLabel('Height', { exact: true })).toHaveValue('2')
+  await page.getByRole('button', { name: 'Swap width and height' }).click()
+  await expect(page.getByLabel('Width', { exact: true })).toHaveValue('2')
+  await expect(page.getByLabel('Height', { exact: true })).toHaveValue('1')
+  await page.getByRole('combobox', { name: 'Units', exact: true }).selectOption('mm')
+  await expect(page.getByLabel('Width', { exact: true })).toHaveValue('50.8')
   await expect(page.locator('#custom-size-help')).toContainText('600 × 300 px at 300 DPI')
-  await page.getByLabel('Width',{exact:true}).fill('40')
-  await page.getByLabel('Height',{exact:true}).fill('50')
-  await page.getByRole('button',{name:'Apply dimensions'}).click()
-  await expect(page.getByRole('combobox',{name:'Photo size',exact:true})).toHaveValue('custom')
-  await page.getByRole('button',{name:'Adjust',exact:true}).click()
-  await expect(page.getByRole('heading',{name:'Light & color'})).toBeVisible()
-  await expect(page.getByRole('heading',{name:'Position & crop'})).toBeHidden()
-  await page.getByRole('button',{name:'Name tag',exact:true}).click()
-  await page.getByLabel('Add a name tag',{exact:true}).check()
-  await page.getByLabel('Full name',{exact:true}).fill('EDITOR TEST')
-  await page.getByRole('button',{name:'Crop',exact:true}).click()
-  await page.getByRole('button',{name:'Edit dimensions',exact:true}).click()
-  await expect(page.getByLabel('Width',{exact:true})).toHaveValue('40')
-  await page.getByRole('button',{name:'Apply dimensions',exact:true}).click()
+  await page.getByLabel('Width', { exact: true }).fill('40')
+  await page.getByLabel('Height', { exact: true }).fill('50')
+  await page.getByRole('button', { name: 'Apply dimensions' }).click()
+  await expect(page.getByRole('combobox', { name: 'Photo size', exact: true })).toHaveValue(
+    'custom',
+  )
+  await page.getByRole('button', { name: 'Adjust', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Light & color' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Position & crop' })).toBeHidden()
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('EDITOR TEST')
+  await page.getByRole('button', { name: 'Crop', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit dimensions', exact: true }).click()
+  await expect(page.getByLabel('Width', { exact: true })).toHaveValue('40')
+  await page.getByRole('button', { name: 'Apply dimensions', exact: true }).click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('1')
-  for(const width of [375,600,1280]){
-    await page.setViewportSize({width,height:900})
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
-    const preview=await page.locator('.workspace > .preview-frame').boundingBox()
+  for (const width of [375, 600, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    const preview = await page.locator('.workspace > .preview-frame').boundingBox()
     expect(preview!.height).toBeLessThan(600)
-    await page.evaluate(()=>window.scrollTo(0,0))
-    await page.screenshot({path:testInfo.outputPath(`editor-${width}.png`)})
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.screenshot({ path: testInfo.outputPath(`editor-${width}.png`) })
   }
-  await page.getByRole('combobox',{name:'Photo size',exact:true}).selectOption('asa')
-  await page.getByText('Build an ASA pair from two photos',{exact:true}).click()
-  const image=await fixture(page)
-  await page.getByLabel('Person 1',{exact:true}).setInputFiles(image)
-  await page.getByLabel('Person 2',{exact:true}).setInputFiles(image)
-  await expect(page.getByRole('button',{name:'Use this pair',exact:true})).toBeEnabled()
-  await page.getByRole('button',{name:'Swap people',exact:true}).click()
-  await page.getByRole('button',{name:'Reset selected portrait',exact:true}).click()
-  await expect(page.getByRole('group',{name:'Select portrait to adjust'}).getByRole('button',{name:'Left',exact:true})).toHaveAttribute('aria-pressed','true')
-  await page.getByRole('button',{name:'Right',exact:true}).click()
-  for(const width of [375,1280]){
-    await page.setViewportSize({width,height:900})
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('asa')
+  await page.getByText('Build an ASA pair from two photos', { exact: true }).click()
+  const image = await fixture(page)
+  await page.getByLabel('Person 1', { exact: true }).setInputFiles(image)
+  await page.getByLabel('Person 2', { exact: true }).setInputFiles(image)
+  await expect(page.getByRole('button', { name: 'Use this pair', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Swap people', exact: true }).click()
+  await page.getByRole('button', { name: 'Reset selected portrait', exact: true }).click()
+  await expect(
+    page
+      .getByRole('group', { name: 'Select portrait to adjust' })
+      .getByRole('button', { name: 'Left', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Right', exact: true }).click()
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
     await page.locator('.compact-pair').scrollIntoViewIfNeeded()
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
-    await page.screenshot({path:testInfo.outputPath(`asa-pair-${width}.png`)})
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`asa-pair-${width}.png`) })
   }
-  await page.getByRole('button',{name:'Use this pair',exact:true}).click()
-  await expect(page.locator('.compact-pair')).not.toHaveAttribute('open','',{timeout:120000})
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  await page.getByLabel('Photo 1 copies',{exact:true}).fill('100')
-  await page.getByLabel('Photo 1 copies',{exact:true}).blur()
-  await page.getByRole('button',{name:'Next',exact:true}).click()
+  await page.getByRole('button', { name: 'Use this pair', exact: true }).click()
+  await expect(page.locator('.compact-pair')).not.toHaveAttribute('open', '', { timeout: 120000 })
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('100')
+  await page.getByLabel('Photo 1 copies', { exact: true }).blur()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page.locator('.preview-caption')).toContainText('Page 2')
-  await page.getByRole('button',{name:'Border',exact:true}).click()
-  await page.getByRole('radio',{name:'Medium',exact:true}).check()
-  await page.getByRole('button',{name:'Name tag',exact:true}).click()
-  await page.getByLabel('Add a name tag',{exact:true}).check()
-  await page.getByLabel('Full name',{exact:true}).fill('SYNTHETIC TEST')
-  for(const width of [375,1280]){
-    await page.setViewportSize({width,height:900})
-    await page.evaluate(()=>window.scrollTo(0,0))
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
-    await page.screenshot({path:testInfo.outputPath(`export-${width}.png`)})
+  await page.getByRole('button', { name: 'Border', exact: true }).click()
+  await page.getByRole('radio', { name: 'Medium', exact: true }).check()
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('SYNTHETIC TEST')
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`export-${width}.png`) })
   }
-  await page.getByRole('button',{name:'Download',exact:true}).click()
-  await page.getByRole('button',{name:'Inspect photo',exact:true}).click()
-  const inspector=page.getByRole('dialog',{name:'Inspect final photo',exact:true})
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
+  await page.getByRole('button', { name: 'Inspect photo', exact: true }).click()
+  const inspector = page.getByRole('dialog', { name: 'Inspect final photo', exact: true })
   await expect(inspector).toBeVisible()
-  await expect(inspector.getByRole('img',{name:'Enlarged final photo with applied crop, border and name tag',exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'Zoom in final photo',exact:true}).click()
+  await expect(
+    inspector.getByRole('img', {
+      name: 'Enlarged final photo with applied crop, border and name tag',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Zoom in final photo', exact: true }).click()
   await expect(inspector.locator('output')).toHaveText('125%')
-  for(const width of [375,1280]){
-    await page.setViewportSize({width,height:900})
-    const dialogBounds=await inspector.boundingBox()
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    const dialogBounds = await inspector.boundingBox()
     expect(dialogBounds!.width).toBeLessThan(width)
-    await page.screenshot({path:testInfo.outputPath(`photo-inspector-${width}.png`)})
+    await page.screenshot({ path: testInfo.outputPath(`photo-inspector-${width}.png`) })
   }
-  await page.getByRole('button',{name:'Close photo inspection',exact:true}).click()
+  await page.getByRole('button', { name: 'Close photo inspection', exact: true }).click()
   await expect(inspector).toHaveCount(0)
-  await page.getByRole('button',{name:'Inspect photo',exact:true}).click()
+  await page.getByRole('button', { name: 'Inspect photo', exact: true }).click()
   await expect(inspector).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(inspector).toHaveCount(0)
-  await page.getByRole('button',{name:'Download',exact:true}).click()
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
   await expect(page.locator('.final-review-summary')).toContainText('Included')
-  for(const width of [375,1280]){
-    await page.setViewportSize({width,height:900})
-    await page.evaluate(()=>window.scrollTo(0,0))
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
-    await page.screenshot({path:testInfo.outputPath(`final-review-${width}.png`)})
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`final-review-${width}.png`) })
   }
-  await page.getByText('Print setup',{exact:true}).click()
-  const calibration=page.waitForEvent('download')
-  await page.getByRole('button',{name:'Download calibration PDF',exact:true}).click()
-  const calibrationFile=await calibration
+  await page.getByText('Print setup', { exact: true }).click()
+  const calibration = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download calibration PDF', exact: true }).click()
+  const calibrationFile = await calibration
   expect(calibrationFile.suggestedFilename()).toBe('IDReady-calibration-a4.pdf')
   await calibrationFile.saveAs(testInfo.outputPath('calibration-a4.pdf'))
-  for(const orientation of ['portrait','landscape']){
-    await page.getByRole('button',{name:'Layout',exact:true}).click()
-    await page.getByRole('combobox',{name:'Paper',exact:true}).selectOption('3r')
-    await page.getByRole('combobox',{name:'Orientation',exact:true}).selectOption(orientation)
-    await page.getByRole('button',{name:'Download',exact:true}).click()
-    const nextCalibration=page.waitForEvent('download')
-    await page.getByRole('button',{name:'Download calibration PDF',exact:true}).click()
+  for (const orientation of ['portrait', 'landscape']) {
+    await page.getByRole('button', { name: 'Layout', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('3r')
+    await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption(orientation)
+    await page.getByRole('button', { name: 'Download', exact: true }).click()
+    const nextCalibration = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download calibration PDF', exact: true }).click()
     await (await nextCalibration).saveAs(testInfo.outputPath(`calibration-3r-${orientation}.pdf`))
   }
-  await page.getByRole('button',{name:'Layout',exact:true}).click()
-  await page.getByRole('combobox',{name:'Paper',exact:true}).selectOption('a4')
-  await page.getByRole('combobox',{name:'Orientation',exact:true}).selectOption('portrait')
-  await page.getByRole('button',{name:'Download',exact:true}).click()
-  const pngDownload=page.waitForEvent('download')
-  await page.getByRole('button',{name:'PNG',exact:true}).click()
+  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('a4')
+  await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption('portrait')
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
+  const pngDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'PNG', exact: true }).click()
   expect((await pngDownload).suggestedFilename()).toBe('IDReady-asa.png')
-  await page.getByRole('button',{name:'Layout',exact:true}).click()
-  await expect(page.getByLabel('Photo 1 copies',{exact:true})).toHaveValue('100')
-  const download=page.waitForEvent('download')
-  await page.getByRole('button',{name:'Download PDF',exact:true}).click()
+  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('100')
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('IDReady-a4.pdf')
 })
 
-test('production offline reload runs real segmentation in a worker and exports',async({page,context})=>{
-  const remote:string[]=[]
-  page.on('request',request=>{if(/^https?:/.test(request.url())&&!request.url().startsWith('http://127.0.0.1:4175/'))remote.push(request.url())})
+test('production offline reload runs real segmentation in a worker and exports', async ({
+  page,
+  context,
+}) => {
+  const remote: string[] = []
+  page.on('request', (request) => {
+    if (/^https?:/.test(request.url()) && !request.url().startsWith('http://127.0.0.1:4175/'))
+      remote.push(request.url())
+  })
   await page.goto('/')
-  await page.evaluate(async()=>{await navigator.serviceWorker.ready})
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready
+  })
   await page.reload()
-  await page.getByRole('button',{name:'Settings and help'}).click()
-  await expect(page.getByText('Not ready',{exact:true})).toHaveCount(2)
-  await page.getByRole('button',{name:'Set up offline',exact:false}).click()
-  await expect(page.locator('progress')).toHaveCount(0,{timeout:120000})
-  await expect(page.locator('.offline-states').getByText('Ready',{exact:true})).toHaveCount(3)
-  await expect(page.getByRole('button',{name:'Check again',exact:true})).toBeEnabled()
-  await page.getByText('Downloaded file storage',{exact:true}).click()
-  page.once('dialog',dialog=>void dialog.dismiss())
-  await page.getByRole('button',{name:'Remove downloaded AI files',exact:true}).click()
-  await expect(page.locator('.offline-states').getByText('Ready',{exact:true})).toHaveCount(3)
-  page.once('dialog',dialog=>void dialog.accept())
-  await page.getByRole('button',{name:'Remove downloaded AI files',exact:true}).click()
-  await expect(page.locator('.offline-states').getByText('Not ready',{exact:true})).toHaveCount(2)
-  await page.getByRole('button',{name:'Set up offline',exact:false}).click()
-  await expect(page.locator('.offline-states').getByText('Ready',{exact:true})).toHaveCount(3,{timeout:120000})
-  await page.getByRole('button',{name:'Close',exact:true}).click()
+  await page.getByRole('button', { name: 'Settings and help' }).click()
+  await expect(page.getByText('Not ready', { exact: true })).toHaveCount(2)
+  await page.getByRole('button', { name: 'Set up offline', exact: false }).click()
+  await expect(page.locator('progress')).toHaveCount(0, { timeout: 120000 })
+  await expect(page.locator('.offline-states').getByText('Ready', { exact: true })).toHaveCount(3)
+  await expect(page.getByRole('button', { name: 'Check again', exact: true })).toBeEnabled()
+  await page.getByText('Downloaded file storage', { exact: true }).click()
+  page.once('dialog', (dialog) => void dialog.dismiss())
+  await page.getByRole('button', { name: 'Remove downloaded AI files', exact: true }).click()
+  await expect(page.locator('.offline-states').getByText('Ready', { exact: true })).toHaveCount(3)
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: 'Remove downloaded AI files', exact: true }).click()
+  await expect(page.locator('.offline-states').getByText('Not ready', { exact: true })).toHaveCount(
+    2,
+  )
+  await page.getByRole('button', { name: 'Set up offline', exact: false }).click()
+  await expect(page.locator('.offline-states').getByText('Ready', { exact: true })).toHaveCount(3, {
+    timeout: 120000,
+  })
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
   await context.setOffline(true)
   await page.reload()
   await importPhoto(page)
-  await page.getByRole('button',{name:'Background',exact:true}).click()
-  await page.getByRole('button',{name:'Remove background',exact:true}).click()
-  await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toBeEnabled({timeout:120000})
+  await page.getByRole('button', { name: 'Background', exact: true }).click()
+  await page.getByRole('button', { name: 'Remove background', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'Retry background removal', exact: true }),
+  ).toBeEnabled({ timeout: 120000 })
   await expect(page.locator('.app-notice')).toContainText('Background removed')
   expect(page.workers().length).toBeGreaterThan(0)
-  const originalPreview=await page.locator('.workspace > .preview-frame canvas').evaluate(element=>(element as HTMLCanvasElement).toDataURL())
-  await page.getByRole('button',{name:'Clean up edges',exact:true}).click()
-  const brush=page.locator('.workspace .inline-cleanup canvas')
+  const originalPreview = await page
+    .locator('.workspace > .preview-frame canvas')
+    .evaluate((element) => (element as HTMLCanvasElement).toDataURL())
+  await page.getByRole('button', { name: 'Clean up edges', exact: true }).click()
+  const brush = page.locator('.workspace .inline-cleanup canvas')
   await brush.scrollIntoViewIfNeeded()
-  const bounds=await brush.boundingBox()
+  const bounds = await brush.boundingBox()
   expect(bounds).not.toBeNull()
-  await page.mouse.move(bounds!.x+20,bounds!.y+20);await page.mouse.down();await page.mouse.move(bounds!.x+45,bounds!.y+45);await page.mouse.up()
-  await expect(page.getByRole('button',{name:'Undo stroke'})).toBeEnabled()
-  await page.getByRole('button',{name:'Cancel cleanup'}).click()
+  await page.mouse.move(bounds!.x + 20, bounds!.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(bounds!.x + 45, bounds!.y + 45)
+  await page.mouse.up()
+  await expect(page.getByRole('button', { name: 'Undo stroke' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Cancel cleanup' }).click()
   await expect(page.locator('.inline-cleanup')).toHaveCount(0)
-  expect(await page.locator('.workspace > .preview-frame canvas').evaluate(element=>(element as HTMLCanvasElement).toDataURL())).toBe(originalPreview)
-  await page.getByRole('button',{name:'Clean up edges',exact:true}).click()
+  expect(
+    await page
+      .locator('.workspace > .preview-frame canvas')
+      .evaluate((element) => (element as HTMLCanvasElement).toDataURL()),
+  ).toBe(originalPreview)
+  await page.getByRole('button', { name: 'Clean up edges', exact: true }).click()
   await page.locator('.inline-cleanup canvas').scrollIntoViewIfNeeded()
-  const again=await page.locator('.inline-cleanup canvas').boundingBox()
-  await page.mouse.move(again!.x+20,again!.y+20);await page.mouse.down();await page.mouse.move(again!.x+45,again!.y+45);await page.mouse.up()
-  await page.getByRole('button',{name:'Apply cleanup'}).click()
+  const again = await page.locator('.inline-cleanup canvas').boundingBox()
+  await page.mouse.move(again!.x + 20, again!.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(again!.x + 45, again!.y + 45)
+  await page.mouse.up()
+  await page.getByRole('button', { name: 'Apply cleanup' }).click()
   await expect(page.locator('.app-notice')).toContainText('Cleanup applied')
-  await page.getByRole('button',{name:'Continue to export',exact:false}).click()
-  const download=page.waitForEvent('download')
-  await page.getByRole('button',{name:'Download PDF',exact:true}).click()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('IDReady-a4.pdf')
   expect(remote).toEqual([])
 })
 
-test('denied camera preserves upload fallback and mobile has no horizontal overflow',async({page})=>{
-  await page.addInitScript(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Denied by test','NotAllowedError')}})
+test('denied camera preserves upload fallback and mobile has no horizontal overflow', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      throw new DOMException('Denied by test', 'NotAllowedError')
+    }
+  })
   await page.goto('/')
-  for(const width of [320,375,600]){
-    await page.setViewportSize({width,height:800})
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+  for (const width of [320, 375, 600]) {
+    await page.setViewportSize({ width, height: 800 })
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
     await expect(page.locator('.drop-zone')).toBeHidden()
-    const chooser=page.waitForEvent('filechooser')
-    await page.getByRole('button',{name:'Upload photo',exact:true}).click()
+    const chooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'Upload photo', exact: true }).click()
     expect(await chooser).toBeTruthy()
   }
-  await page.getByRole('button',{name:'Take photo',exact:true}).click()
+  await page.getByRole('button', { name: 'Take photo', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('permission was denied')
-  await expect(page.getByRole('dialog').getByRole('button',{name:'Upload photo'})).toBeEnabled()
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Upload photo' })).toBeEnabled()
 })
 
-test('missing offline models fail honestly, preserve the photo, and retry online',async({page,context})=>{
+test('missing offline models fail honestly, preserve the photo, and retry online', async ({
+  page,
+  context,
+}) => {
   await page.goto('/')
-  await page.evaluate(async()=>{await navigator.serviceWorker.ready})
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready
+  })
   await page.reload()
   await context.setOffline(true)
   await page.reload()
   await importPhoto(page)
-  await page.getByRole('button',{name:'Background',exact:true}).click()
-  await page.getByRole('button',{name:'Remove background',exact:true}).click()
-  await expect(page.locator('.controls .notice.error')).toContainText('Your original is safe',{timeout:120000})
-  await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toHaveCount(0)
-  await expect(page.getByRole('button',{name:'Continue to export',exact:false})).toBeEnabled()
+  await page.getByRole('button', { name: 'Background', exact: true }).click()
+  await page.getByRole('button', { name: 'Remove background', exact: true }).click()
+  await expect(page.locator('.controls .notice.error')).toContainText('Your original is safe', {
+    timeout: 120000,
+  })
+  await expect(
+    page.getByRole('button', { name: 'Retry background removal', exact: true }),
+  ).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Continue to export', exact: false })).toBeEnabled()
   await context.setOffline(false)
-  await page.getByRole('button',{name:'Background',exact:true}).click()
-  await page.getByRole('button',{name:'Remove background',exact:true}).click()
-  await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toBeEnabled({timeout:120000})
+  await page.getByRole('button', { name: 'Background', exact: true }).click()
+  await page.getByRole('button', { name: 'Remove background', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'Retry background removal', exact: true }),
+  ).toBeEnabled({ timeout: 120000 })
 })
 
-test('legacy single draft remains readable without a database reset',async({page})=>{
+test('legacy single draft remains readable without a database reset', async ({ page }) => {
   await page.goto('/')
-  const image=await fixture(page)
-  await page.evaluate(async(base64)=>{
-    const bytes=Uint8Array.from(atob(base64),character=>character.charCodeAt(0))
-    const database=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open('idready',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})
-    await new Promise<void>((resolve,reject)=>{
-      const transaction=database.transaction('drafts','readwrite')
-      transaction.objectStore('drafts').put({id:'current',createdAt:Date.now(),photo:new Blob([bytes],{type:'image/png'}),size:{id:'2x2',label:'2 × 2 inches',widthMm:50.8,heightMm:50.8},transform:{x:.1,y:0,zoom:1.25,rotation:0,brightness:100,contrast:100,borderStyle:'none'}})
-      transaction.oncomplete=()=>resolve();transaction.onerror=()=>reject(transaction.error)
+  const image = await fixture(page)
+  await page.evaluate(async (base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('idready', 1)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction('drafts', 'readwrite')
+      transaction.objectStore('drafts').put({
+        id: 'current',
+        createdAt: Date.now(),
+        photo: new Blob([bytes], { type: 'image/png' }),
+        size: { id: '2x2', label: '2 × 2 inches', widthMm: 50.8, heightMm: 50.8 },
+        transform: {
+          x: 0.1,
+          y: 0,
+          zoom: 1.25,
+          rotation: 0,
+          brightness: 100,
+          contrast: 100,
+          borderStyle: 'none',
+        },
+      })
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
     })
     database.close()
-  },image.buffer.toString('base64'))
+  }, image.buffer.toString('base64'))
   await page.reload()
-  await page.getByRole('button',{name:'Resume',exact:true}).click()
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
   await expect(page.locator('input[type=range]').first()).toHaveValue('1.25')
 })

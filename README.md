@@ -109,6 +109,8 @@ Use the production preview or an HTTPS deployment to test service-worker behavio
 | `npm run dev` | Start the Vite development server |
 | `npm run typecheck` | Check TypeScript project references |
 | `npm run lint` | Run ESLint |
+| `npm run format` | Format source and browser tests with Prettier |
+| `npm run format:check` | Check source and browser-test formatting without modifying files |
 | `npm test` | Run the Vitest suite once |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run build` | Type-check and create the production build in `dist/` |

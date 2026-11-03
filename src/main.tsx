@@ -9,4 +9,8 @@ import './styles/camera.css'
 import './styles/processing.css'
 import './styles/enhancements.css'
 registerSW({ immediate: true })
-createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>)
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
