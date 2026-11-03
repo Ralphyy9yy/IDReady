@@ -569,7 +569,7 @@ export default function App() {
                       ? 'Current photo saved; combined sheet is not saved. Download the PDF before reloading.'
                       : `Saved on this device at ${new Date(savedState!.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
             </span>
-            {stage !== 'edit' && (
+            {stage === 'export' && (
               <button
                 className="button secondary"
                 disabled={saving || processing || pendingEdits}

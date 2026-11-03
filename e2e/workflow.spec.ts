@@ -1,5 +1,20 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('photo draft save action is available only in edit and export', async ({ page }) => {
+  page.on('dialog', (dialog) => void dialog.accept())
+  await page.goto('/')
+  const save = page.getByRole('button', { name: 'Save photo draft', exact: true })
+  await expect(save).toHaveCount(0)
+  await importPhoto(page)
+  await expect(save).toBeVisible()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(save).toBeVisible()
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  await expect(save).toHaveCount(0)
+  await page.getByRole('button', { name: 'Edit photo', exact: false }).click()
+  await expect(save).toBeVisible()
+})
+
 test('sheet photo actions reopen original edits, inspect any photo and preserve stable order', async ({
   page,
 }, testInfo) => {
