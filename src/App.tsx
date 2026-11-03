@@ -72,8 +72,26 @@ export default function App() {
   const [status, setStatus] = useState('')
   const [sheetSettings, setSheetSettings] = useState(defaultSheetSettings)
   const [sheetPhotos, setSheetPhotos] = useState<SheetPhoto[]>([])
+  const photoSequence = useRef(0)
+  const editablePhotos = useRef(
+    new Map<
+      number,
+      { photo: Blob; processed?: Blob; size: PhotoSize; transform: Transform; pair?: AsaPair }
+    >(),
+  )
+  const rememberCurrentPhoto = () => {
+    if (sourceBlob)
+      editablePhotos.current.set(documentVersion, {
+        photo: sourceBlob,
+        processed: processedBlob,
+        size,
+        transform,
+        pair: asaPair,
+      })
+  }
   const addingPhoto = useRef<{ version: number; edits: string } | undefined>(undefined)
   const beginAdditionalPhoto = () => {
+    rememberCurrentPhoto()
     addingPhoto.current = {
       version: documentVersion,
       edits: editKey(size, transform, sheetSettings),
@@ -162,7 +180,7 @@ export default function App() {
           ? { ...sheetSettings, quantity: defaultSheetSettings().quantity }
           : defaultSheetSettings(),
       )
-      setDocumentVersion((value) => value + 1)
+      setDocumentVersion(++photoSequence.current)
       setSourceBlob(blob)
       setOriginal(bitmap)
       setImage(bitmap)
@@ -310,6 +328,7 @@ export default function App() {
       }
       // Restoring bypasses import defaults and automatic face positioning.
       setSheetPhotos([])
+      editablePhotos.current.clear()
       addingPhoto.current = undefined
       original?.close()
       if (image !== original) image?.close()
@@ -331,7 +350,7 @@ export default function App() {
       setProcessedBlob(d.processed)
       setSheetSettings(d.sheetSettings ?? defaultSheetSettings())
       setAsaPair(d.asaPair)
-      setDocumentVersion((value) => value + 1)
+      setDocumentVersion(++photoSequence.current)
       setSize(d.size)
       setTransform({ ...initialTransform, ...d.transform })
       setShowOriginal(false)
@@ -352,6 +371,52 @@ export default function App() {
     const items = await listDrafts()
     setDrafts(items)
     setDraft(!!items.length)
+  }
+  const editSheetPhoto = async (id: number, quantity: number) => {
+    if (id === documentVersion) {
+      setStage('edit')
+      return
+    }
+    const photo = editablePhotos.current.get(id)
+    if (!photo) {
+      setError('This photo cannot be reopened for editing. Your sheet is unchanged.')
+      return
+    }
+    rememberCurrentPhoto()
+    const ticket = ++job.current
+    let restoredOriginal: ImageBitmap | undefined
+    let restoredProcessed: ImageBitmap | undefined
+    try {
+      restoredOriginal = await decodeImage(photo.photo)
+      if (photo.processed) restoredProcessed = await decodeImage(photo.processed)
+      if (ticket !== job.current) {
+        restoredOriginal.close()
+        restoredProcessed?.close()
+        return
+      }
+      original?.close()
+      if (image !== original) image?.close()
+      setSourceBlob(photo.photo)
+      setOriginal(restoredOriginal)
+      setImage(restoredProcessed ?? restoredOriginal)
+      setProcessedBlob(photo.processed)
+      setSize(photo.size)
+      setTransform(photo.transform)
+      setAsaPair(photo.pair)
+      setDocumentVersion(id)
+      setSheetSettings((value) => ({ ...value, quantity }))
+      setSavedState(undefined)
+      setActiveDraft(undefined)
+      setShowOriginal(false)
+      setError('')
+      setBgError('')
+      setStage('edit')
+      window.scrollTo({ top: 0 })
+    } catch {
+      restoredOriginal?.close()
+      restoredProcessed?.close()
+      setError('Could not reopen this photo. Your sheet is unchanged.')
+    }
   }
   const deleteSaved = async (id: string) => {
     if (
@@ -463,11 +528,29 @@ export default function App() {
             disabled={s !== 'add' && !sourceBlob}
           >
             <span>{i + 1}</span>
-            {s === 'add' ? 'Add photo' : s === 'edit' ? 'Edit photo' : 'Export'}
+            {s === 'add' ? 'Add photo' : s === 'edit' ? 'Edit photo' : 'Arrange & export'}
           </button>
         ))}
       </nav>
       <main>
+        {!!sheetPhotos.length && (
+          <section className="sheet-session-summary" aria-label="Your sheet">
+            <div>
+              <strong>Your sheet</strong>
+              <span>
+                {sheetPhotos.filter((photo) => photo.id !== documentVersion).length + 1} photos ·{' '}
+                {sheetPhotos
+                  .filter((photo) => photo.id !== documentVersion)
+                  .reduce((total, photo) => total + photo.quantity, sheetSettings.quantity)}{' '}
+                copies
+              </span>
+            </div>
+            <small>
+              Kept in this tab only. Save photo drafts individually; download the sheet PDF before
+              closing.
+            </small>
+          </section>
+        )}
         {error && (
           <div className="notice error" role="alert">
             {error}
@@ -493,7 +576,7 @@ export default function App() {
                 onClick={save}
               >
                 <Save />
-                Save draft
+                Save photo draft
               </button>
             )}
           </div>
@@ -604,7 +687,7 @@ export default function App() {
                 onClick={save}
               >
                 <Save />
-                Save draft
+                Save photo draft
               </button>
               <button className="button primary" onClick={next}>
                 Continue to export
@@ -628,6 +711,7 @@ export default function App() {
               photos={sheetPhotos}
               onPhotosChange={setSheetPhotos}
               photoId={documentVersion}
+              onEditPhoto={editSheetPhoto}
               onAddPhoto={beginAdditionalPhoto}
               settings={sheetSettings}
               onSettingsChange={setSheetSettings}
@@ -647,7 +731,7 @@ export default function App() {
             onClick={save}
           >
             <Save />
-            Save draft
+            Save photo draft
           </button>
           <button className="button primary full" onClick={next}>
             Continue to export

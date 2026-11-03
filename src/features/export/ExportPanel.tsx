@@ -36,6 +36,7 @@ interface Props {
   onPhotosChange: (photos: SheetPhoto[]) => void
   photoId: number
   onAddPhoto: () => void
+  onEditPhoto: (id: number, quantity: number) => Promise<void>
   image: ImageBitmap
   size: PhotoSize
   transform: Transform
@@ -49,6 +50,7 @@ export function ExportPanel({
   onPhotosChange,
   photoId,
   onAddPhoto,
+  onEditPhoto,
   image,
   size,
   transform,
@@ -61,7 +63,7 @@ export function ExportPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
-  const [inspecting, setInspecting] = useState(false)
+  const [inspecting, setInspecting] = useState<SheetPhoto | null>(null)
   const pan = useRef<{ pointer: number; x: number; y: number; left: number; top: number } | null>(
     null,
   )
@@ -69,10 +71,10 @@ export function ExportPanel({
     () => renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png'),
     [image, size, transform],
   )
-  const collection = [
-    ...photos.filter((photo) => photo.id !== photoId),
-    { id: photoId, data: previewUrl, size, quantity: settings.quantity },
-  ]
+  const currentPhoto = { id: photoId, data: previewUrl, size, quantity: settings.quantity }
+  const collection = photos.some((photo) => photo.id === photoId)
+    ? photos.map((photo) => (photo.id === photoId ? currentPhoto : photo))
+    : [...photos, currentPhoto]
   const layout = layoutMixedSheet(settings, collection)
   const totalCopies = collection.reduce((sum, photo) => sum + photo.quantity, 0)
   const set = <K extends keyof SheetSettings>(key: K, value: SheetSettings[K]) =>
@@ -104,9 +106,9 @@ export function ExportPanel({
     <div className="export-layout">
       {inspecting && (
         <PhotoInspector
-          src={previewUrl}
-          ratio={size.widthMm / size.heightMm}
-          onClose={() => setInspecting(false)}
+          src={inspecting.data}
+          ratio={inspecting.size.widthMm / inspecting.size.heightMm}
+          onClose={() => setInspecting(null)}
         />
       )}
       <div className="export-grid">
@@ -115,7 +117,9 @@ export function ExportPanel({
             <button
               className="button secondary"
               aria-haspopup="dialog"
-              onClick={() => setInspecting(true)}
+              onClick={() =>
+                setInspecting({ id: photoId, data: previewUrl, size, quantity: settings.quantity })
+              }
             >
               Inspect photo
             </button>
@@ -273,10 +277,7 @@ export function ExportPanel({
               <p>Choose your paper and arrange your copies.</p>
               <div className="mixed-photo-list">
                 <h3>Photos on this sheet</h3>
-                <p>
-                  Each photo keeps its own size and finished edits. This collection stays in memory
-                  until you reload; individual drafts do not save the whole sheet.
-                </p>
+                <p>Edit or inspect a photo below. Each keeps its own size and copy count.</p>
                 {collection.map((photo, index) => (
                   <div className="mixed-photo-row" key={photo.id}>
                     <img src={photo.data} alt={`Photo ${index + 1}`} />
@@ -306,6 +307,25 @@ export function ExportPanel({
                           }
                         />
                       </label>
+                      <div className="photo-row-actions">
+                        <button
+                          className="button quiet"
+                          aria-label={`Edit photo ${index + 1}`}
+                          onClick={() => {
+                            onPhotosChange(collection)
+                            void onEditPhoto(photo.id, photo.quantity)
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="button quiet"
+                          aria-label={`Inspect photo ${index + 1}`}
+                          onClick={() => setInspecting(photo)}
+                        >
+                          Inspect
+                        </button>
+                      </div>
                     </div>
                     {photo.id !== photoId && (
                       <button

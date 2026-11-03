@@ -1,5 +1,43 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('sheet photo actions reopen original edits, inspect any photo and preserve stable order', async ({
+  page,
+}, testInfo) => {
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('FIRST PERSON')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('3')
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  await expect(page.getByLabel('Your sheet')).toContainText('Your sheet')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByRole('button', { name: 'Inspect photo 1', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Inspect final photo', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Close photo inspection', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit photo 1', exact: true }).click()
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await expect(page.getByLabel('Full name', { exact: true })).toHaveValue('FIRST PERSON')
+  await page.getByLabel('Full name', { exact: true }).fill('UPDATED PERSON')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('3')
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: testInfo.outputPath(`sheet-actions-${width}.png`),
+      fullPage: true,
+    })
+  }
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(3)
+})
+
 test('QA regressions: sheet settings, collection warnings and isolated draft restore', async ({
   page,
 }) => {
@@ -31,7 +69,7 @@ test('QA regressions: sheet settings, collection warnings and isolated draft res
   await expect(
     page.getByLabel('Add cutting guides outside photos', { exact: true }),
   ).not.toBeChecked()
-  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await page.getByRole('button', { name: 'Save photo draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('combined sheet is not saved')
   await page.getByLabel('Photo 1 copies', { exact: true }).fill('17')
   await expect(page.locator('.draft-save-status')).not.toContainText('Saved on this device at')
@@ -171,6 +209,7 @@ test('CSC preset explains size-only scope and handwritten tag requirements', asy
   await page.goto('/')
   await importPhoto(page)
   await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('csc')
+  await page.getByText('Review CSC photo requirements', { exact: true }).click()
   await expect(
     page.getByRole('option', { name: 'CSC · 35 × 45 mm (size only)', exact: true }),
   ).toHaveCount(1)
@@ -308,7 +347,7 @@ test('complete ASA drafts restore editable portraits and all export settings aft
   await page.getByText('Margins & cutting guides', { exact: true }).click()
   await page.getByLabel('Safe margin (mm)', { exact: true }).fill('8')
   await page.getByLabel('Add cutting guides outside photos', { exact: true }).uncheck()
-  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await page.getByRole('button', { name: 'Save photo draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
   await page.reload()
   await page.getByRole('button', { name: 'Resume', exact: true }).click()
@@ -338,7 +377,7 @@ test('complete ASA drafts restore editable portraits and all export settings aft
   await expect(page.getByLabel('Portrait zoom', { exact: true })).toHaveValue('1.6')
   await zoom('1.8')
   await expect(page.locator('.draft-save-status')).toContainText('Unsaved changes')
-  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await page.getByRole('button', { name: 'Save photo draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
   await page.reload()
   await page.getByRole('button', { name: 'Resume', exact: true }).click()
@@ -420,12 +459,12 @@ test('unsaved edits warn on navigation and replacement, and save status tracks c
     'dialog',
     (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Safety test' : undefined),
   )
-  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await page.getByRole('button', { name: 'Save photo draft', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
   page.removeAllListeners('dialog')
   await page.getByRole('button', { name: 'Open crop frame', exact: true }).click()
   await expect(page.locator('.draft-save-status')).toContainText('Unapplied edits')
-  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Save photo draft', exact: true })).toBeDisabled()
   page.once('dialog', (dialog) => void dialog.dismiss())
   await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
   await expect(page.getByRole('button', { name: 'Cancel crop', exact: true })).toBeVisible()
@@ -471,11 +510,11 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
     'dialog',
     (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Family photo' : undefined),
   )
-  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await page.getByRole('button', { name: 'Save photo draft', exact: true }).click()
   await expect(page.locator('.app-notice')).toContainText('Draft saved')
   await page.getByRole('button', { name: 'IDReady home' }).click()
   await importPhoto(page)
-  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await page.getByRole('button', { name: 'Save photo draft', exact: true }).click()
   await expect(page.locator('.app-notice')).toContainText('Draft saved')
   await page.getByRole('button', { name: 'IDReady home' }).click()
   await expect(page.locator('.draft-item')).toHaveCount(2)
