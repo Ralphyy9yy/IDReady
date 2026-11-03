@@ -93,10 +93,12 @@ export default function App() {
       savedState.processed !== processedBlob ||
       savedState.edits !== editKey(size, transform, sheetSettings) ||
       !sameAsaPair(savedState.pair, asaPair))
+  // Individual drafts do not persist the other photos in a combined sheet.
+  const unsavedCollection = sheetPhotos.some((photo) => photo.id !== documentVersion)
   const allowLeave = () =>
-    !(dirty || pendingEdits) ||
+    !(dirty || pendingEdits || unsavedCollection) ||
     window.confirm(
-      'You have unsaved changes. Leave this screen? Applied edits stay in memory, but unapplied crop or cleanup edits will be discarded. Save a draft to keep your work.',
+      'You have unsaved changes. Leave this screen? Applied edits stay in memory, but unapplied crop or cleanup edits will be discarded. Save a draft to keep the current photo; download the PDF to keep a combined sheet.',
     )
   const isAddingPhoto = () =>
     stage === 'add' &&
@@ -117,7 +119,7 @@ export default function App() {
       window.scrollTo({ top: 0 })
     }
   }
-  useUnsavedChangesWarning(dirty || pendingEdits)
+  useUnsavedChangesWarning(dirty || pendingEdits || unsavedCollection)
   useEffect(() => {
     void getOfflineState()
       .then((state) => setOfflineReady(state.app && state.background && state.face))
@@ -131,6 +133,7 @@ export default function App() {
   }, [])
   const load = async (blob: Blob) => {
     if (!allowReplace()) return
+    const keepSheetSettings = isAddingPhoto()
     if (saving) {
       setStatus('Please wait for the draft to finish saving.')
       return
@@ -154,7 +157,11 @@ export default function App() {
       setActiveDraft(undefined)
       setSavedState(undefined)
       setAsaPair(undefined)
-      setSheetSettings(defaultSheetSettings())
+      setSheetSettings(
+        keepSheetSettings
+          ? { ...sheetSettings, quantity: defaultSheetSettings().quantity }
+          : defaultSheetSettings(),
+      )
       setDocumentVersion((value) => value + 1)
       setSourceBlob(blob)
       setOriginal(bitmap)
@@ -274,7 +281,15 @@ export default function App() {
   }
 
   const resume = async (id = 'current') => {
-    if (!allowReplace() || saving) return
+    if (saving) return
+    if (unsavedCollection) {
+      if (
+        !window.confirm(
+          'Open this single-photo draft and replace the current combined sheet? Its other photos and quantities are not saved. Download the combined PDF first to keep it.',
+        )
+      )
+        return
+    } else if (!allowReplace()) return
     const ticket = ++job.current
     setProcessing(false)
     let restoredOriginal: ImageBitmap | undefined
@@ -294,6 +309,8 @@ export default function App() {
         return
       }
       // Restoring bypasses import defaults and automatic face positioning.
+      setSheetPhotos([])
+      addingPhoto.current = undefined
       original?.close()
       if (image !== original) image?.close()
       setSavedState({
@@ -451,6 +468,11 @@ export default function App() {
         ))}
       </nav>
       <main>
+        {error && (
+          <div className="notice error" role="alert">
+            {error}
+          </div>
+        )}
         {sourceBlob && (
           <div className="draft-save-status" role="status" aria-live="polite">
             <span>
@@ -460,7 +482,9 @@ export default function App() {
                   ? 'Unapplied edits — Apply or cancel to save'
                   : dirty
                     ? 'Unsaved changes'
-                    : `Saved on this device at ${new Date(savedState!.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                    : unsavedCollection
+                      ? 'Current photo saved; combined sheet is not saved. Download the PDF before reloading.'
+                      : `Saved on this device at ${new Date(savedState!.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
             </span>
             {stage !== 'edit' && (
               <button
@@ -534,11 +558,6 @@ export default function App() {
                 onDelete={(id) => void deleteSaved(id)}
               />
             </div>
-            {error && (
-              <div className="notice error" role="alert">
-                {error}
-              </div>
-            )}
           </section>
         )}
         {stage === 'edit' && image && original && (

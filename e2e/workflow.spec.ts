@@ -1,5 +1,70 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('QA regressions: sheet settings, collection warnings and isolated draft restore', async ({
+  page,
+}) => {
+  let acceptRestore = true
+  page.on('dialog', (dialog) => {
+    if (dialog.message().startsWith('Open this single-photo draft') && !acceptRestore)
+      void dialog.dismiss()
+    else void dialog.accept(dialog.type() === 'prompt' ? 'QA single photo' : undefined)
+  })
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('letter')
+  await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption('landscape')
+  await page.getByLabel('Gap (mm)', { exact: true }).fill('5')
+  await page.getByText('Margins & cutting guides', { exact: true }).click()
+  await page.getByLabel('Safe margin (mm)', { exact: true }).fill('12')
+  await page.getByLabel('Add cutting guides outside photos', { exact: true }).uncheck()
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByRole('combobox', { name: 'Paper', exact: true })).toHaveValue('letter')
+  await expect(page.getByRole('combobox', { name: 'Orientation', exact: true })).toHaveValue(
+    'landscape',
+  )
+  await expect(page.getByLabel('Gap (mm)', { exact: true })).toHaveValue('5')
+  await page.getByText('Margins & cutting guides', { exact: true }).click()
+  await expect(page.getByLabel('Safe margin (mm)', { exact: true })).toHaveValue('12')
+  await expect(
+    page.getByLabel('Add cutting guides outside photos', { exact: true }),
+  ).not.toBeChecked()
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await expect(page.locator('.draft-save-status')).toContainText('combined sheet is not saved')
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('17')
+  await expect(page.locator('.draft-save-status')).not.toContainText('Saved on this device at')
+  await page.getByRole('button', { name: 'IDReady home', exact: true }).click()
+  acceptRestore = false
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Print-ready ID photos, made simple.', exact: true }),
+  ).toBeVisible()
+  acceptRestore = true
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(1)
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('8')
+  await page.reload()
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(1)
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('8')
+})
+
+test('invalid pasted images show errors in editor and export without losing the photo', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await importPhoto(page)
+  await pasteFixture(page, 'body', true)
+  await expect(page.getByRole('alert')).toContainText('Unsupported image')
+  await expect(page.getByRole('heading', { name: 'Edit photo', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await pasteFixture(page, 'body', true)
+  await expect(page.getByRole('alert')).toContainText('Unsupported image')
+  await expect(page.locator('.sheet-photo')).toHaveCount(8)
+})
+
 test('mobile background removal and touch cleanup work without OffscreenCanvas', async ({
   browser,
 }) => {
