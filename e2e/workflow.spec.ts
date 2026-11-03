@@ -1,5 +1,38 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('mobile background removal and touch cleanup work without OffscreenCanvas',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true})
+  try {
+    await context.addInitScript(()=>{Object.defineProperty(globalThis,'OffscreenCanvas',{value:undefined,configurable:true})})
+    const page=await context.newPage()
+    await page.goto('http://127.0.0.1:4175/')
+    await importPhoto(page)
+    await page.getByRole('button',{name:'Background',exact:true}).tap()
+    await page.getByRole('button',{name:'Remove background',exact:true}).tap()
+    await expect(page.getByRole('button',{name:'Retry background removal',exact:true})).toBeEnabled({timeout:120000})
+    await expect(page.locator('.app-notice')).toContainText('Background removed')
+    expect(page.workers()).toHaveLength(0)
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+    await page.getByRole('button',{name:'Clean up edges',exact:true}).tap()
+    const canvas=page.locator('.inline-cleanup canvas')
+    await canvas.scrollIntoViewIfNeeded()
+    const box=(await canvas.boundingBox())!
+    const stroke=()=>page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2)
+    await stroke()
+    await expect(page.getByRole('button',{name:'Undo stroke'})).toBeEnabled()
+    const erased=await canvas.evaluate(element=>(element as HTMLCanvasElement).toDataURL())
+    await page.getByRole('button',{name:'Restore',exact:true}).tap()
+    await stroke()
+    expect(await canvas.evaluate(element=>(element as HTMLCanvasElement).toDataURL())).not.toBe(erased)
+    await page.getByRole('button',{name:'Apply cleanup',exact:true}).tap()
+    await expect(page.locator('.app-notice')).toContainText('Cleanup applied')
+    await page.getByRole('button',{name:'Continue to export',exact:false}).tap()
+    const download=page.waitForEvent('download')
+    await page.getByRole('button',{name:'Download PDF',exact:true}).tap()
+    expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
+  } finally { await context.close() }
+})
+
 async function pasteFixture(page:Page, selector='body', invalid=false){
   const file=await fixture(page)
   return page.locator(selector).evaluate((target,{base64,invalid})=>{
