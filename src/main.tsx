@@ -8,6 +8,7 @@ import './styles/export.css'
 import './styles/camera.css'
 import './styles/processing.css'
 import './styles/enhancements.css'
+import './styles/compact-workspace.css'
 registerSW({ immediate: true })
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

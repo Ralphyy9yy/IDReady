@@ -1,0 +1,95 @@
+/* Keep editing focused without trapping the document's normal scrolling. */
+body:has(.editor-grid) .steps,
+body:has(.export-grid) .steps {
+  margin-block: 12px;
+}
+main:has(.editor-grid),
+main:has(.export-grid) {
+  padding-top: 8px;
+}
+main:has(.editor-grid) .page-title,
+main:has(.export-grid) .page-title {
+  margin-bottom: 12px;
+}
+main:has(.editor-grid) .page-title h1,
+main:has(.export-grid) .page-title h1 {
+  font-size: 24px;
+}
+main:has(.editor-grid) .draft-save-status,
+main:has(.export-grid) .draft-save-status {
+  margin-block: 6px;
+  padding-block: 4px;
+}
+.sheet-session-summary {
+  margin-block: 8px;
+  padding: 10px 14px;
+}
+.mixed-photo-row {
+  padding-block: 8px;
+}
+.mixed-photo-list {
+  margin-block: 10px;
+  padding-block: 8px;
+}
+@media (min-width: 761px) {
+  .editor-grid,
+  .export-grid {
+    gap: 18px;
+    align-items: start;
+  }
+  .editor-grid > .controls,
+  .export-grid > .controls {
+    max-height: max(280px, calc(100dvh - 440px));
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding: 0 4px 12px 0;
+  }
+  .editor-grid .workspace {
+    min-height: 300px;
+    padding: 32px 18px 14px;
+    --editor-preview-height: clamp(180px, calc(100dvh - 430px), 500px);
+  }
+  .export-preview {
+    --sheet-fit-height: clamp(160px, calc(100dvh - 560px), 440px);
+  }
+  .export-grid .export-preview {
+    padding: 30px 18px 12px;
+  }
+  .export-preview .preview-caption {
+    margin-top: 8px;
+  }
+  .desktop-actions {
+    margin-top: 10px;
+    padding: 6px;
+  }
+  .editor-tools {
+    position: sticky;
+    top: 0;
+    z-index: 12;
+    background: #edf1f8;
+  }
+}
+@media (max-width: 760px) {
+  .sheet-session-summary small {
+    font-size: 11px;
+  }
+  .editor-grid,
+  .export-grid {
+    gap: 12px;
+  }
+  .editor-grid .workspace {
+    min-height: 200px;
+    --editor-preview-height: clamp(150px, 30dvh, 280px);
+    padding: 28px 12px 10px;
+  }
+  .export-grid .export-preview {
+    padding: 28px 12px 10px;
+  }
+  .export-preview {
+    --sheet-fit-height: clamp(150px, 30dvh, 300px);
+  }
+  .controls section,
+  .controls .editor-tool-panel > section {
+    padding: 14px;
+  }
+}
