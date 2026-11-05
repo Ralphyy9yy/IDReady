@@ -1,4 +1,5 @@
 import { FaceDetector, FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision'
+import { refinePersonMask } from './matte'
 
 const wasmRoot = '/wasm'
 let filesetPromise: ReturnType<typeof FilesetResolver.forVisionTasks> | undefined
@@ -34,8 +35,8 @@ export const initSegmenter = () =>
         canvas: typeof document === 'undefined' ? new OffscreenCanvas(1, 1) : undefined,
         baseOptions: { modelAssetPath: '/models/selfie_segmenter.tflite', delegate: 'CPU' },
         runningMode: 'IMAGE',
-        outputCategoryMask: true,
-        outputConfidenceMasks: false,
+        outputCategoryMask: false,
+        outputConfidenceMasks: true,
       }),
     )
     .catch((error) => {
@@ -65,17 +66,21 @@ export async function removeBackground(image: ImageBitmap): Promise<Blob> {
   return new Promise((resolve, reject) =>
     segmenter.segment(image, (result) => {
       try {
-        const mask = result.categoryMask
+        // SelfieSegmenter exposes background then person; single-channel variants expose person.
+        const masks = result.confidenceMasks
+        const mask = masks?.[1] ?? masks?.[0]
         if (!mask) throw new Error('The model returned no person mask.')
         const mw = mask.width,
           mh = mask.height,
-          values = mask.getAsUint8Array()
+          values = mask.getAsFloat32Array()
         const maskCanvas = processingCanvas(mw, mh),
           maskCtx = maskCanvas.getContext('2d')
         if (!maskCtx) throw new Error('Canvas processing is unavailable.')
+        maskCtx.drawImage(image, 0, 0, mw, mh)
+        const alpha = refinePersonMask(values, maskCtx.getImageData(0, 0, mw, mh).data, mw, mh)
         const maskImage = maskCtx.createImageData(mw, mh)
         for (let i = 0; i < values.length; i++) {
-          const a = values[i] === 0 ? 0 : 255
+          const a = alpha[i]
           maskImage.data.set([255, 255, 255, a], i * 4)
         }
         maskCtx.putImageData(maskImage, 0, 0)
