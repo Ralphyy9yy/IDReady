@@ -21,6 +21,7 @@ export function DraftGallery({
             <Thumbnail blob={draft.thumbnail ?? draft.processed ?? draft.photo} />
             <div>
               <strong>{draft.name ?? 'Saved photo'}</strong>
+              {draft.sheet && <p>Sheet draft · {draft.sheet.photos.length} photos</p>}
               <p>
                 {new Date(draft.updatedAt ?? draft.createdAt).toLocaleString()} · {draft.size.label}
               </p>

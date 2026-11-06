@@ -1,5 +1,50 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('complete sheet drafts restore every editable photo after reload', async ({ page }) => {
+  page.on(
+    'dialog',
+    (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Family sheet' : undefined),
+  )
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('FIRST PHOTO')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('3')
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  await importPhoto(page)
+  await page.getByRole('combobox', { name: 'Photo size', exact: true }).selectOption('2x2')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByLabel('Photo 2 copies', { exact: true }).fill('2')
+  await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('letter')
+  await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption('landscape')
+  await page.getByRole('button', { name: 'Save sheet draft', exact: true }).click()
+  await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
+  await page.reload()
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('3')
+  await expect(page.getByLabel('Photo 2 copies', { exact: true })).toHaveValue('2')
+  await expect(page.getByRole('combobox', { name: 'Paper', exact: true })).toHaveValue('letter')
+  await expect(page.getByRole('combobox', { name: 'Orientation', exact: true })).toHaveValue(
+    'landscape',
+  )
+  await expect(page.locator('.sheet-photo')).toHaveCount(5)
+  await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('4')
+  await expect(page.locator('.draft-save-status')).toContainText('combined sheet is not saved')
+  await page.getByRole('button', { name: 'Edit photo 1', exact: true }).click()
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await expect(page.getByLabel('Full name', { exact: true })).toHaveValue('FIRST PHOTO')
+  await page.getByLabel('Full name', { exact: true }).fill('EDITED AFTER RELOAD')
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.locator('.sheet-photo')).toHaveCount(6)
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
+  expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
+})
+
 test('photo draft save action is available only in edit and export', async ({ page }) => {
   page.on('dialog', (dialog) => void dialog.accept())
   await page.goto('/')
@@ -58,7 +103,7 @@ test('QA regressions: sheet settings, collection warnings and isolated draft res
 }) => {
   let acceptRestore = true
   page.on('dialog', (dialog) => {
-    if (dialog.message().startsWith('Open this single-photo draft') && !acceptRestore)
+    if (dialog.message().startsWith('Open this saved draft') && !acceptRestore)
       void dialog.dismiss()
     else void dialog.accept(dialog.type() === 'prompt' ? 'QA single photo' : undefined)
   })

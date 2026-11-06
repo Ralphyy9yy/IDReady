@@ -10,7 +10,7 @@ Photo processing runs in the browser. No account, database, backend, or paid API
 
 On Export, open Layout and choose **Add another photo**. Finish the next photo in the editor and return to Export to combine it with the previous photos. Each retains its finished crop, border, name tag, dimensions, and individual copy count. The preview and PDF share the same automatic arrangement; oversized photos block PDF export rather than being silently omitted. Collections support up to 20 photos with up to 100 copies each.
 
-Mixed-photo collections are session-only and are not included in individual saved drafts. Download the combined PDF before reloading or closing the app. PNG/JPEG downloads and final-photo inspection apply to the currently edited photo.
+Choose **Save sheet draft** to store the complete collection in this browser, including original and processed images, editable adjustments, quantities, order and paper settings. Resume it from the draft gallery after reload. **Save photo draft** stores only the current photo and never overwrites a sheet draft. Browser storage can be cleared or become full, so keep downloaded PDFs as backups. PNG/JPEG downloads apply to the currently edited photo.
 
 - [Preview](#preview)
 - [Features](#features)

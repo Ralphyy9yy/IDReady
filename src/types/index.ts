@@ -61,6 +61,19 @@ export interface AsaPortrait {
 }
 export type AsaPair = (AsaPortrait | undefined)[]
 export interface StoredDraft {
+  sheet?: {
+    activeId: number
+    photos: {
+      id: number
+      data: string
+      quantity: number
+      photo: Blob
+      processed?: Blob
+      size: PhotoSize
+      transform: Transform
+      pair?: AsaPair
+    }[]
+  }
   id: string
   createdAt: number
   updatedAt?: number

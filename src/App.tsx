@@ -36,6 +36,7 @@ interface SavedState {
   edits: string
   savedAt: number
   pair?: AsaPair
+  collection?: string
 }
 const editKey = (size: PhotoSize, transform: Transform, sheetSettings: SheetSettings) =>
   JSON.stringify({ size, transform, sheetSettings })
@@ -112,7 +113,16 @@ export default function App() {
       savedState.edits !== editKey(size, transform, sheetSettings) ||
       !sameAsaPair(savedState.pair, asaPair))
   // Individual drafts do not persist the other photos in a combined sheet.
-  const unsavedCollection = sheetPhotos.some((photo) => photo.id !== documentVersion)
+  const collectionKey = JSON.stringify(
+    sheetPhotos.map((photo) => ({
+      id: photo.id,
+      quantity: photo.id === documentVersion ? sheetSettings.quantity : photo.quantity,
+      data: photo.id === documentVersion ? 'current' : photo.data,
+    })),
+  )
+  const unsavedCollection =
+    sheetPhotos.some((photo) => photo.id !== documentVersion) &&
+    savedState?.collection !== collectionKey
   const allowLeave = () =>
     !(dirty || pendingEdits || unsavedCollection) ||
     window.confirm(
@@ -303,7 +313,7 @@ export default function App() {
     if (unsavedCollection) {
       if (
         !window.confirm(
-          'Open this single-photo draft and replace the current combined sheet? Its other photos and quantities are not saved. Download the combined PDF first to keep it.',
+          'Open this saved draft and replace the current combined sheet? Save a sheet draft first to keep your unsaved photos and quantities.',
         )
       )
         return
@@ -327,8 +337,16 @@ export default function App() {
         return
       }
       // Restoring bypasses import defaults and automatic face positioning.
-      setSheetPhotos([])
+      setSheetPhotos(
+        d.sheet?.photos.map((photo) => ({
+          id: photo.id,
+          data: photo.data,
+          size: photo.size,
+          quantity: photo.quantity,
+        })) ?? [],
+      )
       editablePhotos.current.clear()
+      for (const photo of d.sheet?.photos ?? []) editablePhotos.current.set(photo.id, photo)
       addingPhoto.current = undefined
       original?.close()
       if (image !== original) image?.close()
@@ -342,6 +360,15 @@ export default function App() {
         ),
         pair: d.asaPair,
         savedAt: d.updatedAt ?? d.createdAt,
+        collection: d.sheet
+          ? JSON.stringify(
+              d.sheet.photos.map((photo) => ({
+                id: photo.id,
+                quantity: photo.quantity,
+                data: photo.id === d.sheet!.activeId ? 'current' : photo.data,
+              })),
+            )
+          : undefined,
       })
       setActiveDraft(d.id)
       setSourceBlob(d.photo)
@@ -350,8 +377,14 @@ export default function App() {
       setProcessedBlob(d.processed)
       setSheetSettings(d.sheetSettings ?? defaultSheetSettings())
       setAsaPair(d.asaPair)
-      setDocumentVersion(++photoSequence.current)
       setSize(d.size)
+      if (d.sheet) {
+        photoSequence.current = Math.max(
+          photoSequence.current,
+          ...d.sheet.photos.map((photo) => photo.id),
+        )
+        setDocumentVersion(d.sheet.activeId)
+      } else setDocumentVersion(++photoSequence.current)
       setTransform({ ...initialTransform, ...d.transform })
       setShowOriginal(false)
       setBgError('')
@@ -437,31 +470,58 @@ export default function App() {
       setStatus('Could not delete this draft. Please retry.')
     }
   }
-  const save = async () => {
+  const save = async (wholeSheet = false) => {
     if (!sourceBlob || !image || saving || processing || pendingEdits) return
-    const existing = drafts.find((item) => item.id === activeDraft)
+    const candidate = drafts.find((item) => item.id === activeDraft)
+    const existing = candidate && !!candidate.sheet === wholeSheet ? candidate : undefined
     const name = window.prompt(
       existing ? 'Update this draft name:' : 'Name this new draft:',
-      existing?.name ?? 'ID photo',
+      existing?.name ?? (wholeSheet ? 'Photo sheet' : 'ID photo'),
     )
     if (name === null) return
     if (
       !window.confirm(
         existing
           ? 'Update this saved draft with your current edits?'
-          : 'Save this photo and its edits on this device?',
+          : wholeSheet
+            ? 'Save every photo, its editable adjustments, quantities and sheet settings on this device?'
+            : 'Save this photo and its edits on this device?',
       )
     )
       return
     setSaving(true)
     try {
       const savedAt = Date.now()
-      const id = activeDraft ?? crypto.randomUUID()
+      const id = existing?.id ?? crypto.randomUUID()
       const thumbnail = await canvasToBlob(
         renderPhoto(image, image.width, image.height, size, transform, 60),
         'image/jpeg',
       )
+      let sheet: StoredDraft['sheet']
+      if (wholeSheet) {
+        rememberCurrentPhoto()
+        const current = {
+          id: documentVersion,
+          data: renderPhoto(image, image.width, image.height, size, transform).toDataURL(
+            'image/png',
+          ),
+          size,
+          quantity: sheetSettings.quantity,
+        }
+        const photos = sheetPhotos.some((photo) => photo.id === documentVersion)
+          ? sheetPhotos.map((photo) => (photo.id === documentVersion ? current : photo))
+          : [...sheetPhotos, current]
+        sheet = {
+          activeId: documentVersion,
+          photos: photos.map((photo) => {
+            const editable = editablePhotos.current.get(photo.id)
+            if (!editable) throw new Error('Missing editable photo')
+            return { ...photo, ...editable }
+          }),
+        }
+      }
       await saveDraft({
+        sheet,
         id,
         name: name.trim().slice(0, 80) || 'ID photo',
         createdAt: existing?.createdAt ?? Date.now(),
@@ -482,6 +542,7 @@ export default function App() {
         edits: editKey(size, transform, sheetSettings),
         pair: asaPair,
         savedAt,
+        collection: wholeSheet ? collectionKey : undefined,
       })
       await refreshDrafts().catch(() => undefined)
       setStatus('Draft saved on this device.')
@@ -546,9 +607,16 @@ export default function App() {
               </span>
             </div>
             <small>
-              Kept in this tab only. Save photo drafts individually; download the sheet PDF before
-              closing.
+              Save a sheet draft to keep every photo and its edits on this device. Before closing,
+              save your changes.
             </small>
+            <button
+              className="button secondary"
+              disabled={saving || processing || pendingEdits || stage === 'add'}
+              onClick={() => void save(true)}
+            >
+              Save sheet draft
+            </button>
           </section>
         )}
         {error && (
@@ -573,7 +641,7 @@ export default function App() {
               <button
                 className="button secondary"
                 disabled={saving || processing || pendingEdits}
-                onClick={save}
+                onClick={() => void save()}
               >
                 <Save />
                 Save photo draft
@@ -684,7 +752,7 @@ export default function App() {
               <button
                 className="button secondary"
                 disabled={saving || processing || pendingEdits}
-                onClick={save}
+                onClick={() => void save()}
               >
                 <Save />
                 Save photo draft
@@ -728,7 +796,7 @@ export default function App() {
           <button
             className="button secondary"
             disabled={saving || processing || pendingEdits}
-            onClick={save}
+            onClick={() => void save()}
           >
             <Save />
             Save photo draft
