@@ -1,4 +1,95 @@
 /* Keep editing focused without trapping the document's normal scrolling. */
+.layout-view-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.layout-view-tabs .button {
+  flex: 1;
+}
+.layout-view-tabs [aria-pressed='true'] {
+  background: #eaf0ff;
+  color: #1e50cc;
+  border-color: #a9bff5;
+}
+.export-controls .paper-settings .field-row {
+  grid-template-columns: 1fr;
+}
+.export-preview {
+  position: relative;
+}
+.export-preview .review-view-switch {
+  position: absolute;
+  right: 18px;
+  top: 26px;
+  margin: 0;
+  z-index: 2;
+}
+.export-preview .preview-zoom-toolbar {
+  justify-content: flex-start;
+  padding-right: 150px;
+  margin-bottom: 8px;
+}
+.export-preview .sheet-preview-content {
+  width: 100%;
+}
+main:has(.export-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 16px;
+}
+main:has(.export-grid) > .sheet-session-summary,
+main:has(.export-grid) > .notice,
+main:has(.export-grid) > .export-layout {
+  grid-column: 1/-1;
+}
+main:has(.export-grid) > .sheet-session-summary {
+  grid-row: 1;
+}
+main:has(.export-grid) > .export-layout {
+  grid-row: 4;
+}
+main:has(.export-grid) > .notice {
+  grid-row: 3;
+}
+main:has(.export-grid) > .page-title {
+  grid-column: 1;
+  grid-row: 3;
+}
+main:has(.export-grid) > .draft-save-status {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: center;
+  gap: 12px;
+}
+main:has(.export-grid):not(:has(> .sheet-session-summary)) > .page-title,
+main:has(.export-grid):not(:has(> .sheet-session-summary)) > .draft-save-status {
+  grid-row: 1;
+}
+@media (min-width: 761px) {
+  .export-grid .export-preview {
+    --sheet-fit-height: clamp(280px, calc(100dvh - 390px), 680px);
+  }
+  .export-grid > .controls {
+    max-height: max(340px, calc(100dvh - 300px));
+  }
+}
+@media (max-width: 760px) {
+  main:has(.export-grid) {
+    display: block;
+  }
+  .export-preview .review-view-switch {
+    right: 12px;
+  }
+  .export-preview .preview-zoom-toolbar {
+    gap: 0;
+    padding-right: 120px;
+  }
+  .export-preview .review-view-switch .button {
+    padding: 8px;
+    font-size: 12px;
+  }
+}
 body:has(.editor-grid) .steps,
 body:has(.export-grid) .steps {
   margin-block: 12px;

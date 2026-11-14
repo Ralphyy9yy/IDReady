@@ -59,6 +59,7 @@ export function ExportPanel({
   onSettingsChange,
 }: Props) {
   const [page, setPage] = useState(0)
+  const [layoutView, setLayoutView] = useState<'photos' | 'paper'>('photos')
   const [tool, setTool] = useState<'layout' | 'border' | 'name' | 'download'>('layout')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -134,7 +135,7 @@ export function ExportPanel({
               >
                 <ZoomOut />
               </button>
-              <output aria-live="polite">{previewZoom}%</output>
+              <output aria-live="polite">{previewZoom === 100 ? 'Fit' : `${previewZoom}%`}</output>
               <button
                 className="icon-button"
                 aria-label="Zoom in print preview"
@@ -256,7 +257,7 @@ export function ExportPanel({
                 { id: 'layout', label: 'Layout', Icon: LayoutGrid },
                 { id: 'border', label: 'Border', Icon: Square },
                 { id: 'name', label: 'Name tag', Icon: Type },
-                { id: 'download', label: 'Download', Icon: Download },
+                { id: 'download', label: 'Formats', Icon: Download },
               ] as const
             ).map(({ id, label, Icon }) => (
               <button
@@ -273,9 +274,23 @@ export function ExportPanel({
           </div>
           <div id="export-tool-layout" className="editor-tool-panel" hidden={tool !== 'layout'}>
             <section>
-              <h2>Sheet settings</h2>
-              <p>Choose your paper and arrange your copies.</p>
-              <div className="mixed-photo-list">
+              <div className="layout-view-tabs" role="group" aria-label="Layout settings">
+                <button
+                  className="button secondary"
+                  aria-pressed={layoutView === 'photos'}
+                  onClick={() => setLayoutView('photos')}
+                >
+                  Photos
+                </button>
+                <button
+                  className="button secondary"
+                  aria-pressed={layoutView === 'paper'}
+                  onClick={() => setLayoutView('paper')}
+                >
+                  Paper settings
+                </button>
+              </div>
+              <div className="mixed-photo-list" hidden={layoutView !== 'photos'}>
                 <h3>Photos on this sheet</h3>
                 <p>Edit or inspect a photo below. Each keeps its own size and copy count.</p>
                 {collection.map((photo, index) => (
@@ -352,77 +367,85 @@ export function ExportPanel({
                   Add another photo
                 </button>
                 <p>
-                  {collection.length} photos · {totalCopies} copies. Add up to 20 photos, then edit
-                  each normally.
+                  {collection.length} {collection.length === 1 ? 'photo' : 'photos'} · {totalCopies}{' '}
+                  copies. Add up to 20 photos, then edit each normally.
                 </p>
               </div>
-              <div className="field-row">
-                <label>
-                  Paper
-                  <select
-                    value={settings.paper.id}
-                    onChange={(e) =>
-                      set('paper', PAPERS.find((paper) => paper.id === e.target.value) ?? PAPERS[0])
-                    }
-                  >
-                    {(['Document', 'Photo'] as const).map((group) => (
-                      <optgroup key={group} label={`${group} paper`}>
-                        {PAPERS.filter((paper) => paper.group === group).map((paper) => (
-                          <option key={paper.id} value={paper.id}>
-                            {paper.label} · {paper.dimensions}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Orientation
-                  <select
-                    value={settings.orientation}
-                    onChange={(e) => set('orientation', e.target.value as 'portrait' | 'landscape')}
-                  >
-                    <option value="portrait">Portrait</option>
-                    <option value="landscape">Landscape</option>
-                  </select>
-                </label>
-              </div>
-              <div className="field-row">
-                <label>
-                  Gap (mm)
-                  <NumberField
-                    min={0}
-                    max={20}
-                    step={0.1}
-                    value={settings.gapMm}
-                    onCommit={(value) => set('gapMm', value)}
-                  />
-                </label>
-              </div>
-              <details className="export-spacing">
-                <summary>Margins & cutting guides</summary>
-                <div className="details-body">
+              <div className="paper-settings" hidden={layoutView !== 'paper'}>
+                <h2>Paper settings</h2>
+                <p>Choose paper, spacing and cutting guides.</p>
+                <div className="field-row">
                   <label>
-                    Safe margin (mm)
-                    <NumberField
-                      min={3}
-                      max={30}
-                      step={0.1}
-                      value={settings.marginMm}
-                      onCommit={(value) => set('marginMm', value)}
-                    />
+                    Paper
+                    <select
+                      value={settings.paper.id}
+                      onChange={(e) =>
+                        set(
+                          'paper',
+                          PAPERS.find((paper) => paper.id === e.target.value) ?? PAPERS[0],
+                        )
+                      }
+                    >
+                      {(['Document', 'Photo'] as const).map((group) => (
+                        <optgroup key={group} label={`${group} paper`}>
+                          {PAPERS.filter((paper) => paper.group === group).map((paper) => (
+                            <option key={paper.id} value={paper.id}>
+                              {paper.label} · {paper.widthMm} × {paper.heightMm} mm
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </label>
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      checked={settings.cuttingGuides}
-                      onChange={(e) => set('cuttingGuides', e.target.checked)}
-                    />
-                    Add cutting guides outside photos
+                  <label>
+                    Orientation
+                    <select
+                      value={settings.orientation}
+                      onChange={(e) =>
+                        set('orientation', e.target.value as 'portrait' | 'landscape')
+                      }
+                    >
+                      <option value="portrait">Portrait</option>
+                      <option value="landscape">Landscape</option>
+                    </select>
                   </label>
                 </div>
-              </details>
-
+                <div className="field-row">
+                  <label>
+                    Gap (mm)
+                    <NumberField
+                      min={0}
+                      max={20}
+                      step={0.1}
+                      value={settings.gapMm}
+                      onCommit={(value) => set('gapMm', value)}
+                    />
+                  </label>
+                </div>
+                <details className="export-spacing">
+                  <summary>Margins & cutting guides</summary>
+                  <div className="details-body">
+                    <label>
+                      Safe margin (mm)
+                      <NumberField
+                        min={3}
+                        max={30}
+                        step={0.1}
+                        value={settings.marginMm}
+                        onCommit={(value) => set('marginMm', value)}
+                      />
+                    </label>
+                    <label className="check">
+                      <input
+                        type="checkbox"
+                        checked={settings.cuttingGuides}
+                        onChange={(e) => set('cuttingGuides', e.target.checked)}
+                      />
+                      Add cutting guides outside photos
+                    </label>
+                  </div>
+                </details>
+              </div>
               {layout.unfit.length > 0 && (
                 <div className="notice error" role="alert">
                   Some photos do not fit. Try larger paper or smaller margins. PDF download is
@@ -585,7 +608,8 @@ export function ExportPanel({
             {layout.pages && !layout.unfit.length ? 'Ready to print' : 'Adjust sheet settings'}
           </strong>
           <p>
-            {settings.paper.label} · {collection.length} photos · {totalCopies} copies · 300 DPI ·{' '}
+            {settings.paper.label} · {collection.length}{' '}
+            {collection.length === 1 ? 'photo' : 'photos'} · {totalCopies} copies · 300 DPI ·{' '}
             {layout.pages} {layout.pages === 1 ? 'page' : 'pages'}
           </p>
           {error && (
