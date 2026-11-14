@@ -919,6 +919,23 @@ test('production offline reload runs real segmentation in a worker and exports',
   await page.mouse.move(bounds!.x + 45, bounds!.y + 45)
   await page.mouse.up()
   await expect(page.getByRole('button', { name: 'Undo stroke' })).toBeEnabled()
+  const painted = await brush.evaluate((element) => (element as HTMLCanvasElement).toDataURL())
+  await page.getByRole('button', { name: 'Undo stroke', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Redo stroke', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Redo stroke', exact: true }).click()
+  expect(await brush.evaluate((element) => (element as HTMLCanvasElement).toDataURL())).toBe(
+    painted,
+  )
+  await page.getByRole('button', { name: 'Zoom in cleanup preview', exact: true }).click()
+  await expect(
+    page.getByRole('group', { name: 'Cleanup preview zoom' }).locator('output'),
+  ).toHaveText('150%')
+  await page.getByRole('button', { name: 'Move', exact: true }).click()
+  await page.getByRole('button', { name: 'Fit photo', exact: true }).click()
+  expect(await brush.evaluate((element) => (element as HTMLCanvasElement).toDataURL())).toBe(
+    painted,
+  )
+  page.once('dialog', (dialog) => void dialog.accept())
   await page.getByRole('button', { name: 'Cancel cleanup' }).click()
   await expect(page.locator('.inline-cleanup')).toHaveCount(0)
   expect(

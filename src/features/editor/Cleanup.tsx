@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Undo2 } from 'lucide-react'
+import { Undo2, Redo2, Hand, ZoomIn, ZoomOut } from 'lucide-react'
 import { containScale } from '../../lib/geometry'
 import { canvasToBlob, drawPhoto } from '../../services/image-processing/render'
 import type { PhotoSize, Transform } from '../../types'
@@ -27,6 +27,11 @@ export function Cleanup({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [history, setHistory] = useState<ImageData[]>([])
+  const [future, setFuture] = useState<ImageData[]>([])
+  const [zoom, setZoom] = useState(100)
+  const [panning, setPanning] = useState(false)
+  const viewport = useRef<HTMLDivElement>(null)
+  const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
   const [cursor, setCursor] = useState<{ x: number; y: number; diameter: number } | null>(null)
   function redraw() {
     const view = canvas.current,
@@ -49,6 +54,7 @@ export function Cleanup({
       view.height = Math.round(view.width / ratio)
     }
     setHistory([])
+    setFuture([])
     redraw()
     // The editing copy is initialized when entering cleanup or switching images.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,14 +126,20 @@ export function Cleanup({
         <button
           className={`button secondary ${mode === 'erase' ? 'active' : ''}`}
           aria-pressed={mode === 'erase'}
-          onClick={() => setMode('erase')}
+          onClick={() => {
+            setMode('erase')
+            setPanning(false)
+          }}
         >
           Erase
         </button>
         <button
           className={`button secondary ${mode === 'restore' ? 'active' : ''}`}
           aria-pressed={mode === 'restore'}
-          onClick={() => setMode('restore')}
+          onClick={() => {
+            setMode('restore')
+            setPanning(false)
+          }}
         >
           Restore
         </button>
@@ -140,6 +152,10 @@ export function Cleanup({
             const ctx = working.current?.getContext('2d'),
               previous = history[history.length - 1]
             if (ctx && previous) {
+              setFuture((old) => [
+                ...old.slice(-4),
+                ctx.getImageData(0, 0, working.current!.width, working.current!.height),
+              ])
               ctx.putImageData(previous, 0, 0)
               redraw()
             }
@@ -147,6 +163,72 @@ export function Cleanup({
           }}
         >
           <Undo2 aria-hidden="true" />
+        </button>
+        <button
+          className="icon-button"
+          aria-label="Redo stroke"
+          title="Redo last stroke"
+          disabled={!future.length || busy}
+          onClick={() => {
+            const source = working.current,
+              ctx = source?.getContext('2d'),
+              next = future[future.length - 1]
+            if (source && ctx && next) {
+              setHistory((old) => [
+                ...old.slice(-4),
+                ctx.getImageData(0, 0, source.width, source.height),
+              ])
+              ctx.putImageData(next, 0, 0)
+              setFuture((old) => old.slice(0, -1))
+              redraw()
+            }
+          }}
+        >
+          <Redo2 />
+        </button>
+        <button
+          className="button secondary"
+          aria-pressed={panning}
+          disabled={busy}
+          onClick={() => {
+            setPanning(!panning)
+            setCursor(null)
+          }}
+        >
+          <Hand />
+          Move
+        </button>
+      </div>
+      <div className="cleanup-view-tools" role="group" aria-label="Cleanup preview zoom">
+        <button
+          className="icon-button"
+          aria-label="Zoom out cleanup preview"
+          disabled={zoom <= 100 || busy}
+          onClick={() => setZoom((value) => Math.max(100, value - 50))}
+        >
+          <ZoomOut />
+        </button>
+        <output aria-live="polite">{zoom}%</output>
+        <button
+          className="icon-button"
+          aria-label="Zoom in cleanup preview"
+          disabled={zoom >= 400 || busy}
+          onClick={() => setZoom((value) => Math.min(400, value + 50))}
+        >
+          <ZoomIn />
+        </button>
+        <button
+          className="button quiet"
+          disabled={busy}
+          onClick={() => {
+            setZoom(100)
+            if (viewport.current) {
+              viewport.current.scrollTop = 0
+              viewport.current.scrollLeft = 0
+            }
+          }}
+        >
+          Fit photo
         </button>
       </div>
       <label className="inline-brush">
@@ -159,70 +241,108 @@ export function Cleanup({
           onChange={(e) => setBrush(Number(e.target.value))}
         />
       </label>
-      <div
-        className="preview-frame"
-        style={{
-          aspectRatio: `${size.widthMm}/${size.heightMm}`,
-          width: `min(100%, calc(var(--editor-preview-height, 550px) * ${size.widthMm / size.heightMm}))`,
-        }}
-      >
-        <canvas
-          ref={canvas}
-          aria-label="Photo preview. Paint to erase or restore background edges."
-          onPointerEnter={(event) => {
-            if (event.pointerType !== 'touch') trackCursor(event)
+      <div ref={viewport} className="cleanup-viewport" data-move={panning}>
+        <div
+          className="preview-frame"
+          style={{
+            aspectRatio: `${size.widthMm}/${size.heightMm}`,
+            width: `${zoom}%`,
+            maxWidth: 'none',
+            flexShrink: 0,
           }}
-          onPointerLeave={() => setCursor(null)}
-          onPointerDown={(event) => {
-            const source = working.current,
-              ctx = source?.getContext('2d')
-            if (!source || !ctx || busy || !event.isPrimary || event.button !== 0) return
-            setHistory((old) => [
-              ...old.slice(-4),
-              ctx.getImageData(0, 0, source.width, source.height),
-            ])
-            trackCursor(event)
-            last.current = undefined
-            event.currentTarget.setPointerCapture(event.pointerId)
-            paint(point(event))
-          }}
-          onPointerMove={(event) => {
-            trackCursor(event)
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) paint(point(event))
-          }}
-          onPointerUp={(event) => {
-            last.current = undefined
-            if (event.pointerType === 'touch') setCursor(null)
-            if (event.currentTarget.hasPointerCapture(event.pointerId))
-              event.currentTarget.releasePointerCapture(event.pointerId)
-          }}
-          onPointerCancel={() => {
-            last.current = undefined
-            setCursor(null)
-          }}
-          onLostPointerCapture={() => (last.current = undefined)}
-        />
-        {cursor && (
-          <span
-            className="brush-cursor"
-            aria-hidden="true"
-            style={{
-              left: cursor.x,
-              top: cursor.y,
-              width: cursor.diameter,
-              height: cursor.diameter,
+        >
+          <canvas
+            ref={canvas}
+            aria-label="Photo preview. Paint to erase or restore background edges."
+            onPointerEnter={(event) => {
+              if (!panning && event.pointerType !== 'touch') trackCursor(event)
+            }}
+            onPointerLeave={() => setCursor(null)}
+            onPointerDown={(event) => {
+              const source = working.current,
+                ctx = source?.getContext('2d')
+              if (!source || !ctx || busy || !event.isPrimary || event.button !== 0) return
+              if (panning && viewport.current) {
+                pan.current = {
+                  x: event.clientX,
+                  y: event.clientY,
+                  left: viewport.current.scrollLeft,
+                  top: viewport.current.scrollTop,
+                }
+                event.currentTarget.setPointerCapture(event.pointerId)
+                return
+              }
+              setFuture([])
+              setHistory((old) => [
+                ...old.slice(-4),
+                ctx.getImageData(0, 0, source.width, source.height),
+              ])
+              trackCursor(event)
+              last.current = undefined
+              event.currentTarget.setPointerCapture(event.pointerId)
+              paint(point(event))
+            }}
+            onPointerMove={(event) => {
+              if (panning) {
+                if (pan.current && viewport.current) {
+                  viewport.current.scrollLeft = pan.current.left - (event.clientX - pan.current.x)
+                  viewport.current.scrollTop = pan.current.top - (event.clientY - pan.current.y)
+                }
+                return
+              }
+              trackCursor(event)
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) paint(point(event))
+            }}
+            onPointerUp={(event) => {
+              pan.current = null
+              last.current = undefined
+              if (event.pointerType === 'touch') setCursor(null)
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId)
+            }}
+            onPointerCancel={() => {
+              pan.current = null
+              last.current = undefined
+              setCursor(null)
+            }}
+            onLostPointerCapture={() => {
+              last.current = undefined
+              pan.current = null
             }}
           />
-        )}
+          {cursor && (
+            <span
+              className="brush-cursor"
+              aria-hidden="true"
+              style={{
+                left: cursor.x,
+                top: cursor.y,
+                width: cursor.diameter,
+                height: cursor.diameter,
+              }}
+            />
+          )}
+        </div>
       </div>
-      <p className="preview-caption">Paint on the photo · Restore reveals original pixels</p>
+      <p className="preview-caption">
+        {panning
+          ? 'Drag to move the zoomed preview. Select Move again to paint.'
+          : 'Paint to erase or restore. Restore brings back original pixels, including the background.'}{' '}
+        Preview zoom does not change your crop. Undo keeps the last five strokes.
+      </p>
       {error && (
         <p className="notice error" role="alert">
           {error}
         </p>
       )}
       <div className="cleanup-toolbar">
-        <button className="button secondary" disabled={busy} onClick={onCancel}>
+        <button
+          className="button secondary"
+          disabled={busy}
+          onClick={() => {
+            if (!history.length || window.confirm('Discard unapplied cleanup strokes?')) onCancel()
+          }}
+        >
           Cancel cleanup
         </button>
         <button

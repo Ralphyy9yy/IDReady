@@ -303,6 +303,8 @@ export function Editor({
                 style={{ marginTop: 10 }}
                 aria-pressed={cleanup}
                 onClick={() => {
+                  if (cleanup && !window.confirm('Exit cleanup and discard unapplied strokes?'))
+                    return
                   setCleanup((value) => !value)
                   onShowOriginal(false)
                 }}
