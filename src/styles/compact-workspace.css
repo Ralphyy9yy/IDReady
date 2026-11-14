@@ -128,8 +128,7 @@ main:has(.export-grid) .draft-save-status {
     gap: 18px;
     align-items: start;
   }
-  .editor-grid > .controls,
-  .export-grid > .controls {
+  .editor-grid > .controls {
     max-height: max(280px, calc(100dvh - 440px));
     overflow-y: auto;
     scrollbar-gutter: stable;
@@ -158,6 +157,36 @@ main:has(.export-grid) .draft-save-status {
     top: 0;
     z-index: 12;
     background: #edf1f8;
+  }
+}
+/* The toolbar is a sibling of the scroll area, so it cannot cover its contents. */
+.export-grid > .export-controls {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  gap: 10px;
+}
+.export-controls > .editor-tools {
+  position: static;
+  flex-shrink: 0;
+}
+.export-controls-scroll {
+  min-width: 0;
+  padding: 0 4px 28px 0;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 16px 32px;
+}
+@media (min-width: 761px) {
+  .export-controls-scroll {
+    max-height: max(320px, calc(100dvh - 390px));
+    overflow-y: auto;
+  }
+}
+@media (max-width: 760px) {
+  .export-controls-scroll {
+    padding-right: 0;
+    overflow: visible;
+    max-height: none;
   }
 }
 @media (max-width: 760px) {

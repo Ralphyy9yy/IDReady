@@ -1,5 +1,43 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('export toolbar never overlaps scrollable controls and final buttons are reachable', async ({
+  page,
+}, testInfo) => {
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1280, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport)
+    const scroll = page.locator('.export-controls-scroll')
+    const toolbar = page.getByRole('group', { name: 'Export tools' })
+    await scroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const add = page.getByRole('button', { name: 'Add another photo', exact: true })
+    await add.scrollIntoViewIfNeeded()
+    const toolbarBox = (await toolbar.boundingBox())!,
+      scrollBox = (await scroll.boundingBox())!,
+      buttonBox = (await add.boundingBox())!
+    expect(scrollBox.y).toBeGreaterThanOrEqual(toolbarBox.y + toolbarBox.height - 1)
+    if (viewport.width > 760) {
+      expect(buttonBox.y).toBeGreaterThanOrEqual(scrollBox.y)
+      expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(scrollBox.y + scrollBox.height)
+    }
+    await page.getByRole('button', { name: 'Paper settings', exact: true }).click()
+    await expect(page.getByRole('combobox', { name: 'Paper', exact: true })).toBeVisible()
+    expect(await scroll.evaluate((element) => element.scrollTop)).toBeLessThan(5)
+    await page.getByRole('button', { name: 'Photos', exact: true }).click()
+    await page.screenshot({
+      path: testInfo.outputPath(`export-scroll-${viewport.width}-${viewport.height}.png`),
+    })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
 test('complete sheet drafts restore every editable photo after reload', async ({ page }) => {
   page.on(
     'dialog',

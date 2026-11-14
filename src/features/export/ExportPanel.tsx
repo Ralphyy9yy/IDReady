@@ -13,7 +13,7 @@ import {
   Square,
   Type,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NumberField } from './NumberField'
 import { cuttingGuides } from '../../lib/geometry/guides'
 import { layoutMixedSheet, type SheetPhoto } from '../../lib/geometry/mixed'
@@ -59,8 +59,12 @@ export function ExportPanel({
   onSettingsChange,
 }: Props) {
   const [page, setPage] = useState(0)
+  const controlScroll = useRef<HTMLDivElement>(null)
   const [layoutView, setLayoutView] = useState<'photos' | 'paper'>('photos')
   const [tool, setTool] = useState<'layout' | 'border' | 'name' | 'download'>('layout')
+  useEffect(() => {
+    if (controlScroll.current) controlScroll.current.scrollTop = 0
+  }, [tool, layoutView])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
@@ -272,333 +276,339 @@ export function ExportPanel({
               </button>
             ))}
           </div>
-          <div id="export-tool-layout" className="editor-tool-panel" hidden={tool !== 'layout'}>
-            <section>
-              <div className="layout-view-tabs" role="group" aria-label="Layout settings">
-                <button
-                  className="button secondary"
-                  aria-pressed={layoutView === 'photos'}
-                  onClick={() => setLayoutView('photos')}
-                >
-                  Photos
-                </button>
-                <button
-                  className="button secondary"
-                  aria-pressed={layoutView === 'paper'}
-                  onClick={() => setLayoutView('paper')}
-                >
-                  Paper settings
-                </button>
-              </div>
-              <div className="mixed-photo-list" hidden={layoutView !== 'photos'}>
-                <h3>Photos on this sheet</h3>
-                <p>Edit or inspect a photo below. Each keeps its own size and copy count.</p>
-                {collection.map((photo, index) => (
-                  <div className="mixed-photo-row" key={photo.id}>
-                    <img src={photo.data} alt={`Photo ${index + 1}`} />
-                    <div>
-                      <strong>
-                        Photo {index + 1}
-                        {photo.id === photoId ? ' (editing)' : ''}
-                      </strong>
-                      <p>
-                        {photo.size.widthMm} × {photo.size.heightMm} mm
-                      </p>
-                      <label>
-                        Photo {index + 1} copies
-                        <NumberField
-                          min={1}
-                          max={100}
-                          step={1}
-                          value={photo.quantity}
-                          onCommit={(quantity) =>
-                            photo.id === photoId
-                              ? set('quantity', quantity)
-                              : onPhotosChange(
-                                  photos.map((item) =>
-                                    item.id === photo.id ? { ...item, quantity } : item,
-                                  ),
-                                )
-                          }
-                        />
-                      </label>
-                      <div className="photo-row-actions">
+          <div className="export-controls-scroll" ref={controlScroll}>
+            <div id="export-tool-layout" className="editor-tool-panel" hidden={tool !== 'layout'}>
+              <section>
+                <div className="layout-view-tabs" role="group" aria-label="Layout settings">
+                  <button
+                    className="button secondary"
+                    aria-pressed={layoutView === 'photos'}
+                    onClick={() => setLayoutView('photos')}
+                  >
+                    Photos
+                  </button>
+                  <button
+                    className="button secondary"
+                    aria-pressed={layoutView === 'paper'}
+                    onClick={() => setLayoutView('paper')}
+                  >
+                    Paper settings
+                  </button>
+                </div>
+                <div className="mixed-photo-list" hidden={layoutView !== 'photos'}>
+                  <h3>Photos on this sheet</h3>
+                  <p>Edit or inspect a photo below. Each keeps its own size and copy count.</p>
+                  {collection.map((photo, index) => (
+                    <div className="mixed-photo-row" key={photo.id}>
+                      <img src={photo.data} alt={`Photo ${index + 1}`} />
+                      <div>
+                        <strong>
+                          Photo {index + 1}
+                          {photo.id === photoId ? ' (editing)' : ''}
+                        </strong>
+                        <p>
+                          {photo.size.widthMm} × {photo.size.heightMm} mm
+                        </p>
+                        <label>
+                          Photo {index + 1} copies
+                          <NumberField
+                            min={1}
+                            max={100}
+                            step={1}
+                            value={photo.quantity}
+                            onCommit={(quantity) =>
+                              photo.id === photoId
+                                ? set('quantity', quantity)
+                                : onPhotosChange(
+                                    photos.map((item) =>
+                                      item.id === photo.id ? { ...item, quantity } : item,
+                                    ),
+                                  )
+                            }
+                          />
+                        </label>
+                        <div className="photo-row-actions">
+                          <button
+                            className="button quiet"
+                            aria-label={`Edit photo ${index + 1}`}
+                            onClick={() => {
+                              onPhotosChange(collection)
+                              void onEditPhoto(photo.id, photo.quantity)
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="button quiet"
+                            aria-label={`Inspect photo ${index + 1}`}
+                            onClick={() => setInspecting(photo)}
+                          >
+                            Inspect
+                          </button>
+                        </div>
+                      </div>
+                      {photo.id !== photoId && (
                         <button
                           className="button quiet"
-                          aria-label={`Edit photo ${index + 1}`}
+                          aria-label={`Remove photo ${index + 1}`}
                           onClick={() => {
-                            onPhotosChange(collection)
-                            void onEditPhoto(photo.id, photo.quantity)
+                            if (window.confirm('Remove this photo from the sheet?'))
+                              onPhotosChange(photos.filter((item) => item.id !== photo.id))
                           }}
                         >
-                          Edit
+                          Remove
                         </button>
-                        <button
-                          className="button quiet"
-                          aria-label={`Inspect photo ${index + 1}`}
-                          onClick={() => setInspecting(photo)}
-                        >
-                          Inspect
-                        </button>
-                      </div>
+                      )}
                     </div>
-                    {photo.id !== photoId && (
-                      <button
-                        className="button quiet"
-                        aria-label={`Remove photo ${index + 1}`}
-                        onClick={() => {
-                          if (window.confirm('Remove this photo from the sheet?'))
-                            onPhotosChange(photos.filter((item) => item.id !== photo.id))
-                        }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  className="button secondary full"
-                  disabled={collection.length >= 20}
-                  onClick={() => {
-                    onPhotosChange(collection)
-                    onAddPhoto()
-                  }}
-                >
-                  Add another photo
-                </button>
-                <p>
-                  {collection.length} {collection.length === 1 ? 'photo' : 'photos'} · {totalCopies}{' '}
-                  copies. Add up to 20 photos, then edit each normally.
-                </p>
-              </div>
-              <div className="paper-settings" hidden={layoutView !== 'paper'}>
-                <h2>Paper settings</h2>
-                <p>Choose paper, spacing and cutting guides.</p>
-                <div className="field-row">
-                  <label>
-                    Paper
-                    <select
-                      value={settings.paper.id}
-                      onChange={(e) =>
-                        set(
-                          'paper',
-                          PAPERS.find((paper) => paper.id === e.target.value) ?? PAPERS[0],
-                        )
-                      }
-                    >
-                      {(['Document', 'Photo'] as const).map((group) => (
-                        <optgroup key={group} label={`${group} paper`}>
-                          {PAPERS.filter((paper) => paper.group === group).map((paper) => (
-                            <option key={paper.id} value={paper.id}>
-                              {paper.label} · {paper.widthMm} × {paper.heightMm} mm
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Orientation
-                    <select
-                      value={settings.orientation}
-                      onChange={(e) =>
-                        set('orientation', e.target.value as 'portrait' | 'landscape')
-                      }
-                    >
-                      <option value="portrait">Portrait</option>
-                      <option value="landscape">Landscape</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="field-row">
-                  <label>
-                    Gap (mm)
-                    <NumberField
-                      min={0}
-                      max={20}
-                      step={0.1}
-                      value={settings.gapMm}
-                      onCommit={(value) => set('gapMm', value)}
-                    />
-                  </label>
-                </div>
-                <details className="export-spacing">
-                  <summary>Margins & cutting guides</summary>
-                  <div className="details-body">
-                    <label>
-                      Safe margin (mm)
-                      <NumberField
-                        min={3}
-                        max={30}
-                        step={0.1}
-                        value={settings.marginMm}
-                        onCommit={(value) => set('marginMm', value)}
-                      />
-                    </label>
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={settings.cuttingGuides}
-                        onChange={(e) => set('cuttingGuides', e.target.checked)}
-                      />
-                      Add cutting guides outside photos
-                    </label>
-                  </div>
-                </details>
-              </div>
-              {layout.unfit.length > 0 && (
-                <div className="notice error" role="alert">
-                  Some photos do not fit. Try larger paper or smaller margins. PDF download is
-                  disabled until every photo fits.
-                </div>
-              )}
-              {layout.pages > 1 && (
-                <div className="notice" role="status">
-                  Your {totalCopies} copies will use {layout.pages} pages.
-                </div>
-              )}
-            </section>
-          </div>
-          <div id="export-tool-border" className="editor-tool-panel" hidden={tool !== 'border'}>
-            <section>
-              <h2>Photo border</h2>{' '}
-              <fieldset className="border-picker">
-                <legend>Photo border</legend>
-                <div className="border-options">
-                  {borders.map((border) => (
-                    <label
-                      key={border.value}
-                      className={`border-option ${(transform.borderStyle ?? 'none') === border.value ? 'selected' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="photo-border"
-                        value={border.value}
-                        checked={(transform.borderStyle ?? 'none') === border.value}
-                        onChange={() =>
-                          onTransformChange({ ...transform, borderStyle: border.value })
-                        }
-                      />
-                      <span className={`border-swatch swatch-${border.value}`} aria-hidden="true">
-                        <span />
-                      </span>
-                      <span>{border.label}</span>
-                    </label>
                   ))}
+                  <button
+                    className="button secondary full"
+                    disabled={collection.length >= 20}
+                    onClick={() => {
+                      onPhotosChange(collection)
+                      onAddPhoto()
+                    }}
+                  >
+                    Add another photo
+                  </button>
+                  <p>
+                    {collection.length} {collection.length === 1 ? 'photo' : 'photos'} ·{' '}
+                    {totalCopies} copies. Add up to 20 photos, then edit each normally.
+                  </p>
                 </div>
-                <p>Applied inside each photo, including PNG and JPEG downloads.</p>
-              </fieldset>
-            </section>
-          </div>
-          <div id="export-tool-name" className="editor-tool-panel" hidden={tool !== 'name'}>
-            <NameTagControls transform={transform} onChange={onTransformChange} />
-          </div>
-          <div id="export-tool-download" className="editor-tool-panel" hidden={tool !== 'download'}>
-            <section className="final-review-summary">
-              <h2>Photo details</h2>
-              <dl>
-                <dt>Print dimensions</dt>
-                <dd>
-                  {size.widthMm} × {size.heightMm} mm
-                </dd>
-                <dt>Download pixels</dt>
-                <dd>
-                  {mmToPx(size.widthMm)} × {mmToPx(size.heightMm)} px
-                </dd>
-                <dt>Estimated source detail</dt>
-                <dd>
-                  {Math.round(effectivePpi(image.width, image.height, size, transform.zoom))} PPI
-                </dd>
-                <dt>Border</dt>
-                <dd>
-                  {
-                    borders.find((border) => border.value === (transform.borderStyle ?? 'none'))
-                      ?.label
-                  }
-                </dd>
-                <dt>Name tag</dt>
-                <dd>
-                  {transform.nameTag?.enabled &&
-                  (transform.nameTag.name.trim() || transform.nameTag.secondLine.trim())
-                    ? 'Included'
-                    : 'Off'}
-                </dd>
-              </dl>
-              <p>
-                Review text and framing yourself. Resolution estimates do not guarantee sharpness or
-                official acceptance.
-              </p>
-            </section>
-            <section>
-              <h2>Printable sheet</h2>
-              <p>Download the PDF for exact physical dimensions. Print at Actual size / 100%.</p>
-              <p>Use the Download PDF button below.</p>
-            </section>
-            <section>
-              <h2>Single photo</h2>
-              <p>
-                {size.widthMm} × {size.heightMm} mm · {mmToPx(size.widthMm)} ×{' '}
-                {mmToPx(size.heightMm)} px at 300 DPI
-              </p>
-              <div className="button-pair">
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => void download('image/png')}
-                >
-                  <FileImage />
-                  PNG
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => void download('image/jpeg')}
-                >
-                  <Download />
-                  JPEG
-                </button>
-              </div>
-            </section>
-            <details className="print-check">
-              <summary>
-                <Printer />
-                Print setup
-              </summary>
-              <div className="details-body">
+                <div className="paper-settings" hidden={layoutView !== 'paper'}>
+                  <h2>Paper settings</h2>
+                  <p>Choose paper, spacing and cutting guides.</p>
+                  <div className="field-row">
+                    <label>
+                      Paper
+                      <select
+                        value={settings.paper.id}
+                        onChange={(e) =>
+                          set(
+                            'paper',
+                            PAPERS.find((paper) => paper.id === e.target.value) ?? PAPERS[0],
+                          )
+                        }
+                      >
+                        {(['Document', 'Photo'] as const).map((group) => (
+                          <optgroup key={group} label={`${group} paper`}>
+                            {PAPERS.filter((paper) => paper.group === group).map((paper) => (
+                              <option key={paper.id} value={paper.id}>
+                                {paper.label} · {paper.widthMm} × {paper.heightMm} mm
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Orientation
+                      <select
+                        value={settings.orientation}
+                        onChange={(e) =>
+                          set('orientation', e.target.value as 'portrait' | 'landscape')
+                        }
+                      >
+                        <option value="portrait">Portrait</option>
+                        <option value="landscape">Landscape</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="field-row">
+                    <label>
+                      Gap (mm)
+                      <NumberField
+                        min={0}
+                        max={20}
+                        step={0.1}
+                        value={settings.gapMm}
+                        onCommit={(value) => set('gapMm', value)}
+                      />
+                    </label>
+                  </div>
+                  <details className="export-spacing">
+                    <summary>Margins & cutting guides</summary>
+                    <div className="details-body">
+                      <label>
+                        Safe margin (mm)
+                        <NumberField
+                          min={3}
+                          max={30}
+                          step={0.1}
+                          value={settings.marginMm}
+                          onCommit={(value) => set('marginMm', value)}
+                        />
+                      </label>
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          checked={settings.cuttingGuides}
+                          onChange={(e) => set('cuttingGuides', e.target.checked)}
+                        />
+                        Add cutting guides outside photos
+                      </label>
+                    </div>
+                  </details>
+                </div>
+                {layout.unfit.length > 0 && (
+                  <div className="notice error" role="alert">
+                    Some photos do not fit. Try larger paper or smaller margins. PDF download is
+                    disabled until every photo fits.
+                  </div>
+                )}
+                {layout.pages > 1 && (
+                  <div className="notice" role="status">
+                    Your {totalCopies} copies will use {layout.pages} pages.
+                  </div>
+                )}
+              </section>
+            </div>
+            <div id="export-tool-border" className="editor-tool-panel" hidden={tool !== 'border'}>
+              <section>
+                <h2>Photo border</h2>{' '}
+                <fieldset className="border-picker">
+                  <legend>Photo border</legend>
+                  <div className="border-options">
+                    {borders.map((border) => (
+                      <label
+                        key={border.value}
+                        className={`border-option ${(transform.borderStyle ?? 'none') === border.value ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="photo-border"
+                          value={border.value}
+                          checked={(transform.borderStyle ?? 'none') === border.value}
+                          onChange={() =>
+                            onTransformChange({ ...transform, borderStyle: border.value })
+                          }
+                        />
+                        <span className={`border-swatch swatch-${border.value}`} aria-hidden="true">
+                          <span />
+                        </span>
+                        <span>{border.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p>Applied inside each photo, including PNG and JPEG downloads.</p>
+                </fieldset>
+              </section>
+            </div>
+            <div id="export-tool-name" className="editor-tool-panel" hidden={tool !== 'name'}>
+              <NameTagControls transform={transform} onChange={onTransformChange} />
+            </div>
+            <div
+              id="export-tool-download"
+              className="editor-tool-panel"
+              hidden={tool !== 'download'}
+            >
+              <section className="final-review-summary">
+                <h2>Photo details</h2>
+                <dl>
+                  <dt>Print dimensions</dt>
+                  <dd>
+                    {size.widthMm} × {size.heightMm} mm
+                  </dd>
+                  <dt>Download pixels</dt>
+                  <dd>
+                    {mmToPx(size.widthMm)} × {mmToPx(size.heightMm)} px
+                  </dd>
+                  <dt>Estimated source detail</dt>
+                  <dd>
+                    {Math.round(effectivePpi(image.width, image.height, size, transform.zoom))} PPI
+                  </dd>
+                  <dt>Border</dt>
+                  <dd>
+                    {
+                      borders.find((border) => border.value === (transform.borderStyle ?? 'none'))
+                        ?.label
+                    }
+                  </dd>
+                  <dt>Name tag</dt>
+                  <dd>
+                    {transform.nameTag?.enabled &&
+                    (transform.nameTag.name.trim() || transform.nameTag.secondLine.trim())
+                      ? 'Included'
+                      : 'Off'}
+                  </dd>
+                </dl>
                 <p>
-                  Download a test for {settings.paper.label} ({settings.orientation}). Print at
-                  Actual size / 100%, with Fit to page off. Both sides of the test square must
-                  measure 50 mm.
+                  Review text and framing yourself. Resolution estimates do not guarantee sharpness
+                  or official acceptance.
                 </p>
-                <button
-                  className="button secondary full"
-                  disabled={busy}
-                  onClick={() =>
-                    void runExport(async () => {
-                      const { createCalibrationPdf } =
-                        await import('../../services/export/calibration')
-                      createCalibrationPdf(settings).save(
-                        `IDReady-calibration-${settings.paper.id}.pdf`,
-                      )
-                    })
-                  }
-                >
-                  Download calibration PDF
-                </button>
-                <p>This test contains no photo and does not change your layout or crop.</p>
-                <h3>Printing tips</h3>
-                <ol>
-                  <li>Select {settings.paper.label} paper.</li>
-                  <li>Choose Actual size / 100%.</li>
-                  <li>Turn off Fit to page.</li>
-                  <li>Choose the correct paper type and quality.</li>
-                </ol>
+              </section>
+              <section>
+                <h2>Printable sheet</h2>
+                <p>Download the PDF for exact physical dimensions. Print at Actual size / 100%.</p>
+                <p>Use the Download PDF button below.</p>
+              </section>
+              <section>
+                <h2>Single photo</h2>
                 <p>
-                  <strong>Epson L3210:</strong> Download the PDF, transfer it to a computer
-                  connected to the printer by USB, and print at 100%.
+                  {size.widthMm} × {size.heightMm} mm · {mmToPx(size.widthMm)} ×{' '}
+                  {mmToPx(size.heightMm)} px at 300 DPI
                 </p>
-              </div>
-            </details>
+                <div className="button-pair">
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => void download('image/png')}
+                  >
+                    <FileImage />
+                    PNG
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => void download('image/jpeg')}
+                  >
+                    <Download />
+                    JPEG
+                  </button>
+                </div>
+              </section>
+              <details className="print-check">
+                <summary>
+                  <Printer />
+                  Print setup
+                </summary>
+                <div className="details-body">
+                  <p>
+                    Download a test for {settings.paper.label} ({settings.orientation}). Print at
+                    Actual size / 100%, with Fit to page off. Both sides of the test square must
+                    measure 50 mm.
+                  </p>
+                  <button
+                    className="button secondary full"
+                    disabled={busy}
+                    onClick={() =>
+                      void runExport(async () => {
+                        const { createCalibrationPdf } =
+                          await import('../../services/export/calibration')
+                        createCalibrationPdf(settings).save(
+                          `IDReady-calibration-${settings.paper.id}.pdf`,
+                        )
+                      })
+                    }
+                  >
+                    Download calibration PDF
+                  </button>
+                  <p>This test contains no photo and does not change your layout or crop.</p>
+                  <h3>Printing tips</h3>
+                  <ol>
+                    <li>Select {settings.paper.label} paper.</li>
+                    <li>Choose Actual size / 100%.</li>
+                    <li>Turn off Fit to page.</li>
+                    <li>Choose the correct paper type and quality.</li>
+                  </ol>
+                  <p>
+                    <strong>Epson L3210:</strong> Download the PDF, transfer it to a computer
+                    connected to the printer by USB, and print at 100%.
+                  </p>
+                </div>
+              </details>
+            </div>
           </div>
         </aside>
       </div>
