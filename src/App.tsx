@@ -704,6 +704,9 @@ export default function App() {
             </div>
             <div id="saved-drafts" style={{ gridColumn: '1 / -1' }}>
               <DraftGallery
+                onImported={async () => {
+                  await refreshDrafts()
+                }}
                 drafts={drafts}
                 onResume={(id) => void resume(id)}
                 onDelete={(id) => void deleteSaved(id)}

@@ -6,6 +6,14 @@ Photo processing runs in the browser. No account, database, backend, or paid API
 
 ## Contents
 
+### Portable editable backups
+
+Save your photo or sheet draft, then select **Backup** beside it in **Saved on this device**. The downloaded `.idready` file contains the original and processed images, name tags, crop settings, ASA portrait edits, and complete sheet data when present. It is an editable project backup, not a printable PDF.
+
+Use **Import draft backup** in another browser/device and confirm to add it to that browser's draft gallery. Import always creates a new ID; it does not overwrite an existing draft or replace the open project. Select **Resume** to open the imported draft. No network upload or account is required.
+
+Backups are not encrypted and contain personal photos and names. Store/share them carefully. File size is limited to 150 MB; unsupported versions, malformed settings, non-raster images, oversized images and invalid sheet references are rejected before storage. Browser storage quota can still prevent a valid import. PDF downloads remain useful print copies but do not preserve editable projects.
+
 ### Mixed-photo sheets
 
 On Export, open Layout and choose **Add another photo**. Finish the next photo in the editor and return to Export to combine it with the previous photos. Each retains its finished crop, border, name tag, dimensions, and individual copy count. The preview and PDF share the same automatic arrangement; oversized photos block PDF export rather than being silently omitted. Collections support up to 20 photos with up to 100 copies each.
