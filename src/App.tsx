@@ -12,7 +12,14 @@ import type { SheetPhoto } from './lib/geometry/mixed'
 import { getOfflineState } from './features/offline/offline'
 import { SettingsDialog } from './features/offline/SettingsDialog'
 import { decodeImage, renderPhoto, canvasToBlob } from './services/image-processing/render'
-import { deleteDraft, getDraft, listDrafts, saveDraft } from './services/storage/db'
+import {
+  deleteDraft,
+  getDraft,
+  listDrafts,
+  listRecoveries,
+  RECOVERY_PREFIX,
+  saveDraft,
+} from './services/storage/db'
 import { DraftGallery } from './features/drafts/DraftGallery'
 import { PairBuilder } from './features/editor/PairBuilder'
 import { CustomSize } from './features/editor/CustomSize'
@@ -54,6 +61,9 @@ export default function App() {
   const input = useRef<HTMLInputElement>(null)
   const job = useRef(0)
   const [drafts, setDrafts] = useState<StoredDraft[]>([])
+  const [recoveries, setRecoveries] = useState<StoredDraft[]>([])
+  const recoveryId = useRef(RECOVERY_PREFIX + crypto.randomUUID())
+  const [recoveryStatus, setRecoveryStatus] = useState('')
   const [activeDraft, setActiveDraft] = useState<string>()
   const [stage, setStage] = useState<Stage>('add')
   const [camera, setCamera] = useState(false)
@@ -148,6 +158,90 @@ export default function App() {
     }
   }
   useUnsavedChangesWarning(dirty || pendingEdits || unsavedCollection)
+  useEffect(() => {
+    void listRecoveries()
+      .then(setRecoveries)
+      .catch(() => {
+        setRecoveryStatus('Recovery storage is unavailable. Save a backup to protect your work.')
+      })
+  }, [])
+  // Save applied state during normal use; unload-time IndexedDB writes are unreliable.
+  useEffect(() => {
+    if (!sourceBlob || !image || processing || saving) return
+    const timer = window.setTimeout(() => {
+      try {
+        const current = {
+          id: documentVersion,
+          data: sheetPhotos.length
+            ? renderPhoto(image, image.width, image.height, size, transform).toDataURL('image/png')
+            : '',
+          quantity: sheetSettings.quantity,
+          photo: sourceBlob,
+          processed: processedBlob,
+          size,
+          transform,
+          pair: asaPair,
+        }
+        const photos = sheetPhotos
+          .filter((photo) => photo.id !== documentVersion)
+          .map((photo) => {
+            const editable = editablePhotos.current.get(photo.id)
+            if (!editable) throw new Error('Missing editable photo')
+            return { ...photo, ...editable }
+          })
+        const now = Date.now()
+        void saveDraft({
+          id: recoveryId.current,
+          name: 'Recovered work',
+          createdAt: now,
+          updatedAt: now,
+          photo: sourceBlob,
+          processed: processedBlob,
+          size,
+          transform,
+          asaPair,
+          sheetSettings,
+          stage: stage === 'export' ? 'export' : 'edit',
+          sheet: sheetPhotos.length
+            ? {
+                activeId: documentVersion,
+                photos: sheetPhotos.some((photo) => photo.id === documentVersion)
+                  ? sheetPhotos.map((photo) =>
+                      photo.id === documentVersion
+                        ? current
+                        : photos.find((item) => item.id === photo.id)!,
+                    )
+                  : [...photos, current],
+              }
+            : undefined,
+        })
+          .then(() => setRecoveryStatus('Recovery copy saved on this device.'))
+          .catch(() =>
+            setRecoveryStatus(
+              'Recovery could not be saved. Download a backup; browser storage may be full.',
+            ),
+          )
+      } catch {
+        setRecoveryStatus(
+          'Recovery could not be saved. Save a draft or download your work before closing.',
+        )
+      }
+    }, 1200)
+    return () => window.clearTimeout(timer)
+  }, [
+    sourceBlob,
+    image,
+    processedBlob,
+    size,
+    transform,
+    asaPair,
+    sheetSettings,
+    sheetPhotos,
+    documentVersion,
+    stage,
+    processing,
+    saving,
+  ])
   useEffect(() => {
     void getOfflineState()
       .then((state) => setOfflineReady(state.app && state.background && state.face))
@@ -371,6 +465,12 @@ export default function App() {
           : undefined,
       })
       setActiveDraft(d.id)
+      if (d.id.startsWith(RECOVERY_PREFIX)) {
+        recoveryId.current = d.id
+        setRecoveries((items) => items.filter((item) => item.id !== d.id))
+        setActiveDraft(undefined)
+        setSavedState(undefined)
+      }
       setSourceBlob(d.photo)
       setOriginal(restoredOriginal)
       setImage(restoredProcessed ?? restoredOriginal)
@@ -594,6 +694,50 @@ export default function App() {
         ))}
       </nav>
       <main>
+        {!!recoveries.length && (
+          <section className="notice" aria-label="Recover previous work">
+            <h2>Recover previous work</h2>
+            <p>
+              Applied edits were saved locally. Unapplied cleanup strokes are not included. Restore
+              a copy or discard it below.
+            </p>
+            {recoveries.map((item) => (
+              <div key={item.id}>
+                <span>
+                  {new Date(item.updatedAt ?? item.createdAt).toLocaleString()} ·{' '}
+                  {item.sheet?.photos.length ?? 1} photo(s){' '}
+                </span>
+                <button className="button secondary" onClick={() => void resume(item.id)}>
+                  Restore recovery
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={async () => {
+                    if (
+                      !window.confirm(
+                        'Discard this recovery copy? This cannot be undone. Saved drafts are kept.',
+                      )
+                    )
+                      return
+                    try {
+                      await deleteDraft(item.id)
+                      setRecoveries((items) => items.filter((copy) => copy.id !== item.id))
+                    } catch {
+                      setRecoveryStatus('Could not discard the recovery copy. Please retry.')
+                    }
+                  }}
+                >
+                  Discard recovery
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
+        {recoveryStatus && (
+          <p role="status">
+            {recoveryStatus} Applied edits only; save drafts for long-term storage.
+          </p>
+        )}
         {!!sheetPhotos.length && (
           <section className="sheet-session-summary" aria-label="Your sheet">
             <div>

@@ -1,6 +1,95 @@
 import { test, expect, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 
+test('crash recovery restores unsaved edits and confirms discard', async ({ page }) => {
+  page.on('dialog', (dialog) => void dialog.accept())
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await page.getByLabel('Add a name tag', { exact: true }).check()
+  await page.getByLabel('Full name', { exact: true }).fill('RECOVERY TEST')
+  await expect(page.getByRole('status').filter({ hasText: 'Recovery copy saved' })).toBeVisible()
+  // Wait for the latest debounced edit, not a previous snapshot's status.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        return new Promise<string | undefined>((resolve, reject) => {
+          const request = indexedDB.open('idready')
+          request.onerror = () => reject(request.error)
+          request.onsuccess = () => {
+            const db = request.result
+            const read = db.transaction('drafts').objectStore('drafts').getAll()
+            read.onsuccess = () => {
+              resolve(
+                read.result.find((item) => item.id.startsWith('recovery:'))?.transform.nameTag
+                  ?.name,
+              )
+              db.close()
+            }
+            read.onerror = () => {
+              reject(read.error)
+              db.close()
+            }
+          }
+        })
+      }),
+    )
+    .toBe('RECOVERY TEST')
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Recover previous work' })).toBeVisible()
+  await expect(page.locator('.draft-item')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Restore recovery', exact: true }).click()
+  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
+  await expect(page.getByLabel('Full name', { exact: true })).toHaveValue('RECOVERY TEST')
+  await expect(page.locator('.draft-save-status')).toContainText('Unsaved changes')
+  await page.reload()
+  page.removeAllListeners('dialog')
+  page.once('dialog', (dialog) => void dialog.dismiss())
+  await page.getByRole('button', { name: 'Discard recovery', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Restore recovery', exact: true })).toBeVisible()
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: 'Discard recovery', exact: true }).click()
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Recover previous work' })).toHaveCount(0)
+})
+
+test('crash recovery keeps a multi-photo sheet and quantities after reload', async ({ page }) => {
+  page.on('dialog', (dialog) => void dialog.accept())
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await page.getByLabel('Photo 1 copies', { exact: true }).fill('3')
+  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<number>((resolve) => {
+            const request = indexedDB.open('idready')
+            request.onsuccess = () => {
+              const db = request.result
+              const read = db.transaction('drafts').objectStore('drafts').getAll()
+              read.onsuccess = () => {
+                resolve(
+                  read.result.find((item) => item.id.startsWith('recovery:'))?.sheet?.photos
+                    .length ?? 0,
+                )
+                db.close()
+              }
+            }
+          }),
+      ),
+    )
+    .toBe(2)
+  await page.reload()
+  await page.getByRole('button', { name: 'Restore recovery', exact: true }).click()
+  await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('3')
+})
+
 test('portable sheet backup imports in a fresh browser without replacing drafts', async ({
   page,
   browser,

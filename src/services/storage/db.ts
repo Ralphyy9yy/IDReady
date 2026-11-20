@@ -1,5 +1,6 @@
 import { openDB } from 'idb'
 import type { StoredDraft } from '../../types'
+export const RECOVERY_PREFIX = 'recovery:'
 const db = () =>
   openDB('idready', 1, {
     upgrade(database) {
@@ -12,10 +13,16 @@ export async function saveDraft(draft: StoredDraft) {
 export async function getDraft(id = 'current'): Promise<StoredDraft | undefined> {
   return (await db()).get('drafts', id)
 }
-export async function listDrafts(): Promise<StoredDraft[]> {
+export async function listRecoveries(): Promise<StoredDraft[]> {
+  return (await allDrafts()).filter((draft) => draft.id.startsWith(RECOVERY_PREFIX))
+}
+async function allDrafts(): Promise<StoredDraft[]> {
   return (await (await db()).getAll('drafts')).sort(
     (a: StoredDraft, b: StoredDraft) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt),
   )
+}
+export async function listDrafts(): Promise<StoredDraft[]> {
+  return (await allDrafts()).filter((draft) => !draft.id.startsWith(RECOVERY_PREFIX))
 }
 export async function deleteDraft(id = 'current') {
   return (await db()).delete('drafts', id)

@@ -6,6 +6,12 @@ Photo processing runs in the browser. No account, database, backend, or paid API
 
 ## Contents
 
+### Crash recovery
+
+Applied photo edits and complete mixed-photo sheets are copied to local IndexedDB after about 1.2 seconds without changes. After reopening or refreshing, choose **Restore recovery** to continue editing or **Discard recovery** to delete that copy (confirmation required). Recovery copies are separate from named saved drafts and do not appear in the draft gallery or its count. Restored work remains unsaved until you explicitly save a draft.
+
+This is best-effort recovery, not a backup guarantee: changes made immediately before a crash, unapplied cleanup/crop sessions, and work interrupted during processing may be missing. Browser storage can be full, unavailable, cleared or evicted. Copies contain personal photos, remain on this browser/device until discarded or local data is cleared, and are not uploaded. Keep named drafts and portable `.idready` backups for important work.
+
 ### Portable editable backups
 
 Save your photo or sheet draft, then select **Backup** beside it in **Saved on this device**. The downloaded `.idready` file contains the original and processed images, name tags, crop settings, ASA portrait edits, and complete sheet data when present. It is an editable project backup, not a printable PDF.
