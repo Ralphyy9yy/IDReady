@@ -162,7 +162,9 @@ export default function App() {
     void listRecoveries()
       .then(setRecoveries)
       .catch(() => {
-        setRecoveryStatus('Recovery storage is unavailable. Save a backup to protect your work.')
+        setRecoveryStatus(
+          'Recovery storage is unavailable. Download your photo or PDF to keep a copy.',
+        )
       })
   }, [])
   // Save applied state during normal use; unload-time IndexedDB writes are unreliable.
@@ -218,7 +220,7 @@ export default function App() {
           .then(() => setRecoveryStatus('Recovery copy saved on this device.'))
           .catch(() =>
             setRecoveryStatus(
-              'Recovery could not be saved. Download a backup; browser storage may be full.',
+              'Recovery could not be saved. Download your photo or PDF; browser storage may be full.',
             ),
           )
       } catch {
@@ -848,9 +850,6 @@ export default function App() {
             </div>
             <div id="saved-drafts" style={{ gridColumn: '1 / -1' }}>
               <DraftGallery
-                onImported={async () => {
-                  await refreshDrafts()
-                }}
                 drafts={drafts}
                 onResume={(id) => void resume(id)}
                 onDelete={(id) => void deleteSaved(id)}

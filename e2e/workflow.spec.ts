@@ -1,5 +1,4 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readFile } from 'node:fs/promises'
 
 test('crash recovery restores unsaved edits and confirms discard', async ({ page }) => {
   page.on('dialog', (dialog) => void dialog.accept())
@@ -88,61 +87,6 @@ test('crash recovery keeps a multi-photo sheet and quantities after reload', asy
   await page.getByRole('button', { name: 'Restore recovery', exact: true }).click()
   await expect(page.locator('.mixed-photo-row')).toHaveCount(2)
   await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('3')
-})
-
-test('portable sheet backup imports in a fresh browser without replacing drafts', async ({
-  page,
-  browser,
-}) => {
-  page.on(
-    'dialog',
-    (dialog) => void dialog.accept(dialog.type() === 'prompt' ? 'Portable sheet' : undefined),
-  )
-  await page.goto('/')
-  await importPhoto(page)
-  await page.getByRole('button', { name: 'Name tag', exact: true }).click()
-  await page.getByLabel('Add a name tag', { exact: true }).check()
-  await page.getByLabel('Full name', { exact: true }).fill('PORTABLE PERSON')
-  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
-  await page.getByLabel('Photo 1 copies', { exact: true }).fill('3')
-  await page.getByRole('button', { name: 'Add another photo', exact: true }).click()
-  await importPhoto(page)
-  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
-  await page.getByRole('button', { name: 'Save sheet draft', exact: true }).click()
-  await expect(page.locator('.draft-save-status')).toContainText('Saved on this device at')
-  await page.getByRole('button', { name: 'IDReady home', exact: true }).click()
-  const downloading = page.waitForEvent('download')
-  await page
-    .getByRole('button', { name: 'Download backup for Portable sheet', exact: true })
-    .click()
-  const download = await downloading,
-    buffer = await readFile((await download.path())!)
-  const context = await browser.newContext()
-  try {
-    const fresh = await context.newPage()
-    fresh.on('dialog', (dialog) => void dialog.accept())
-    await fresh.goto('http://127.0.0.1:4175/')
-    const file = { name: 'sheet.idready', mimeType: 'application/json', buffer }
-    await fresh.getByLabel('Import IDReady backup file', { exact: true }).setInputFiles(file)
-    await expect(fresh.locator('.draft-item')).toHaveCount(1)
-    await fresh.getByLabel('Import IDReady backup file', { exact: true }).setInputFiles(file)
-    await expect(fresh.locator('.draft-item')).toHaveCount(2)
-    await fresh.getByLabel('Import IDReady backup file', { exact: true }).setInputFiles({
-      name: 'bad.idready',
-      mimeType: 'application/json',
-      buffer: Buffer.from('{"format":"IDReady","version":99}'),
-    })
-    await expect(fresh.getByRole('alert')).toContainText('Invalid or unsupported')
-    await expect(fresh.locator('.draft-item')).toHaveCount(2)
-    await fresh.getByRole('button', { name: 'Resume', exact: true }).first().click()
-    await expect(fresh.locator('.mixed-photo-row')).toHaveCount(2)
-    await expect(fresh.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('3')
-    await fresh.getByRole('button', { name: 'Edit photo 1', exact: true }).click()
-    await fresh.getByRole('button', { name: 'Name tag', exact: true }).click()
-    await expect(fresh.getByLabel('Full name', { exact: true })).toHaveValue('PORTABLE PERSON')
-  } finally {
-    await context.close()
-  }
 })
 
 test('export toolbar never overlaps scrollable controls and final buttons are reachable', async ({
