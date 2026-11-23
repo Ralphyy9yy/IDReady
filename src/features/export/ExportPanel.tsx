@@ -13,7 +13,7 @@ import {
   Square,
   Type,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { NumberField } from './NumberField'
 import { cuttingGuides } from '../../lib/geometry/guides'
 import { layoutMixedSheet, type SheetPhoto } from '../../lib/geometry/mixed'
@@ -59,12 +59,8 @@ export function ExportPanel({
   onSettingsChange,
 }: Props) {
   const [page, setPage] = useState(0)
-  const controlScroll = useRef<HTMLDivElement>(null)
   const [layoutView, setLayoutView] = useState<'photos' | 'paper'>('photos')
   const [tool, setTool] = useState<'layout' | 'border' | 'name' | 'download'>('layout')
-  useEffect(() => {
-    if (controlScroll.current) controlScroll.current.scrollTop = 0
-  }, [tool, layoutView])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
@@ -126,7 +122,7 @@ export function ExportPanel({
                 setInspecting({ id: photoId, data: previewUrl, size, quantity: settings.quantity })
               }
             >
-              Inspect photo
+              View photo up close
             </button>
           </div>
           <div className="sheet-preview-content">
@@ -230,25 +226,29 @@ export function ExportPanel({
               </div>
             </div>
             <div className="sheet-page-controls">
-              <button
-                className="button quiet"
-                disabled={currentPage === 0}
-                onClick={() => setPage(currentPage - 1)}
-              >
-                Previous
-              </button>
+              {layout.pages > 1 && (
+                <button
+                  className="button quiet"
+                  disabled={currentPage === 0}
+                  onClick={() => setPage(currentPage - 1)}
+                >
+                  Previous
+                </button>
+              )}
               <p className="preview-caption" aria-live="polite">
                 Page {layout.pages ? currentPage + 1 : 0} of {layout.pages} ·{' '}
                 {layout.items.filter((item) => item.page === currentPage).length} copies on this
                 page
               </p>
-              <button
-                className="button quiet"
-                disabled={currentPage >= layout.pages - 1}
-                onClick={() => setPage(currentPage + 1)}
-              >
-                Next
-              </button>
+              {layout.pages > 1 && (
+                <button
+                  className="button quiet"
+                  disabled={currentPage >= layout.pages - 1}
+                  onClick={() => setPage(currentPage + 1)}
+                >
+                  Next
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -276,9 +276,28 @@ export function ExportPanel({
               </button>
             ))}
           </div>
-          <div className="export-controls-scroll" ref={controlScroll}>
+          <div className="export-controls-scroll">
             <div id="export-tool-layout" className="editor-tool-panel" hidden={tool !== 'layout'}>
               <section>
+                <label>
+                  Paper
+                  <select
+                    value={settings.paper.id}
+                    onChange={(e) =>
+                      set('paper', PAPERS.find((paper) => paper.id === e.target.value) ?? PAPERS[0])
+                    }
+                  >
+                    {(['Document', 'Photo'] as const).map((group) => (
+                      <optgroup key={group} label={`${group} paper`}>
+                        {PAPERS.filter((paper) => paper.group === group).map((paper) => (
+                          <option key={paper.id} value={paper.id}>
+                            {paper.label} · {paper.widthMm} × {paper.heightMm} mm
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
                 <div className="layout-view-tabs" role="group" aria-label="Layout settings">
                   <button
                     className="button secondary"
@@ -381,28 +400,6 @@ export function ExportPanel({
                   <p>Choose paper, spacing and cutting guides.</p>
                   <div className="field-row">
                     <label>
-                      Paper
-                      <select
-                        value={settings.paper.id}
-                        onChange={(e) =>
-                          set(
-                            'paper',
-                            PAPERS.find((paper) => paper.id === e.target.value) ?? PAPERS[0],
-                          )
-                        }
-                      >
-                        {(['Document', 'Photo'] as const).map((group) => (
-                          <optgroup key={group} label={`${group} paper`}>
-                            {PAPERS.filter((paper) => paper.group === group).map((paper) => (
-                              <option key={paper.id} value={paper.id}>
-                                {paper.label} · {paper.widthMm} × {paper.heightMm} mm
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
                       Orientation
                       <select
                         value={settings.orientation}
@@ -440,6 +437,7 @@ export function ExportPanel({
                           onCommit={(value) => set('marginMm', value)}
                         />
                       </label>
+                      <p>Space around the edge of the paper.</p>
                       <label className="check">
                         <input
                           type="checkbox"
@@ -622,6 +620,7 @@ export function ExportPanel({
             {collection.length === 1 ? 'photo' : 'photos'} · {totalCopies} copies · 300 DPI ·{' '}
             {layout.pages} {layout.pages === 1 ? 'page' : 'pages'}
           </p>
+          <p>Print at Actual size / 100%.</p>
           {error && (
             <p className="export-error" role="alert">
               {error}

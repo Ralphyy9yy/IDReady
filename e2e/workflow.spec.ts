@@ -95,6 +95,10 @@ test('export toolbar never overlaps scrollable controls and final buttons are re
   await page.goto('/')
   await importPhoto(page)
   await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByRole('combobox', { name: 'Paper', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Photo 1 copies', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Previous', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Next', exact: true })).toHaveCount(0)
   for (const viewport of [
     { width: 1280, height: 720 },
     { width: 1280, height: 900 },
@@ -468,7 +472,9 @@ test('combines edited photos into one sheet and downloads a PDF', async ({ page 
   await importPhoto(page)
   await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
   await expect(page.getByLabel('Copies', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Inspect photo', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'View photo up close', exact: true })).toHaveCount(
+    1,
+  )
   await page.getByRole('button', { name: 'Photos', exact: true }).click()
   await page.getByLabel('Photo 1 copies', { exact: true }).fill('3')
   await page.getByRole('button', { name: 'Photos', exact: true }).click()
@@ -885,7 +891,7 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
     await page.screenshot({ path: testInfo.outputPath(`export-${width}.png`) })
   }
   await page.getByRole('button', { name: 'Formats', exact: true }).click()
-  await page.getByRole('button', { name: 'Inspect photo', exact: true }).click()
+  await page.getByRole('button', { name: 'View photo up close', exact: true }).click()
   const inspector = page.getByRole('dialog', { name: 'Inspect final photo', exact: true })
   await expect(inspector).toBeVisible()
   await expect(
@@ -904,7 +910,7 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
   }
   await page.getByRole('button', { name: 'Close photo inspection', exact: true }).click()
   await expect(inspector).toHaveCount(0)
-  await page.getByRole('button', { name: 'Inspect photo', exact: true }).click()
+  await page.getByRole('button', { name: 'View photo up close', exact: true }).click()
   await expect(inspector).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(inspector).toHaveCount(0)
