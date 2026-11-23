@@ -3,7 +3,6 @@ import { CscGuidance } from '../editor/CscGuidance'
 import { PhotoInspector } from './PhotoInspector'
 import { ResolutionNotice } from '../editor/ResolutionNotice'
 import {
-  Download,
   FileImage,
   FileText,
   Printer,
@@ -13,7 +12,7 @@ import {
   Square,
   Type,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NumberField } from './NumberField'
 import { cuttingGuides } from '../../lib/geometry/guides'
 import { layoutMixedSheet, type SheetPhoto } from '../../lib/geometry/mixed'
@@ -62,6 +61,7 @@ export function ExportPanel({
   const [layoutView, setLayoutView] = useState<'photos' | 'paper'>('photos')
   const [tool, setTool] = useState<'layout' | 'border' | 'name' | 'download'>('layout')
   const [busy, setBusy] = useState(false)
+  const [chooseDownload, setChooseDownload] = useState(false)
   const [error, setError] = useState('')
   const [previewZoom, setPreviewZoom] = useState(100)
   const [inspecting, setInspecting] = useState<SheetPhoto | null>(null)
@@ -261,7 +261,7 @@ export function ExportPanel({
                 { id: 'layout', label: 'Layout', Icon: LayoutGrid },
                 { id: 'border', label: 'Border', Icon: Square },
                 { id: 'name', label: 'Name tag', Icon: Type },
-                { id: 'download', label: 'Formats', Icon: Download },
+                { id: 'download', label: 'Print info', Icon: Printer },
               ] as const
             ).map(({ id, label, Icon }) => (
               <button
@@ -539,32 +539,6 @@ export function ExportPanel({
               <section>
                 <h2>Printable sheet</h2>
                 <p>Download the PDF for exact physical dimensions. Print at Actual size / 100%.</p>
-                <p>Use the Download PDF button below.</p>
-              </section>
-              <section>
-                <h2>Single photo</h2>
-                <p>
-                  {size.widthMm} × {size.heightMm} mm · {mmToPx(size.widthMm)} ×{' '}
-                  {mmToPx(size.heightMm)} px at 300 DPI
-                </p>
-                <div className="button-pair">
-                  <button
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() => void download('image/png')}
-                  >
-                    <FileImage />
-                    PNG
-                  </button>
-                  <button
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() => void download('image/jpeg')}
-                  >
-                    <Download />
-                    JPEG
-                  </button>
-                </div>
               </section>
               <details className="print-check">
                 <summary>
@@ -627,16 +601,79 @@ export function ExportPanel({
             </p>
           )}
         </div>
-        <button
-          className="button primary"
-          disabled={busy || !layout.items.length || layout.unfit.length > 0}
-          onClick={() => void pdf()}
-        >
+        <button className="button primary" disabled={busy} onClick={() => setChooseDownload(true)}>
           <FileText />
-          {busy ? 'Preparing download…' : 'Download PDF'}
+          {busy ? 'Preparing download…' : 'Download'}
         </button>
       </div>
+      {chooseDownload && (
+        <DownloadChoices
+          canDownloadPdf={!!layout.items.length && !layout.unfit.length}
+          onClose={() => setChooseDownload(false)}
+          onPdf={() => {
+            setChooseDownload(false)
+            void pdf()
+          }}
+          onImage={(type) => {
+            setChooseDownload(false)
+            void download(type)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function DownloadChoices({
+  canDownloadPdf,
+  onClose,
+  onPdf,
+  onImage,
+}: {
+  canDownloadPdf: boolean
+  onClose: () => void
+  onPdf: () => void
+  onImage: (type: 'image/png' | 'image/jpeg') => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const element = dialog.current
+    element?.showModal()
+    return () => element?.close()
+  }, [])
+  return (
+    <dialog
+      ref={dialog}
+      className="download-choices"
+      aria-labelledby="download-choices-title"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+    >
+      <h2 id="download-choices-title">Choose a download</h2>
+      <p>Choose a printable sheet or the currently edited photo.</p>
+      <button className="button primary full" disabled={!canDownloadPdf} onClick={onPdf}>
+        <FileText /> Download PDF
+      </button>
+      <p>
+        {canDownloadPdf
+          ? 'PDF includes all photos and copies on the sheet.'
+          : 'Some photos do not fit. Adjust the paper or margins to download a PDF.'}
+      </p>
+      <div className="button-pair">
+        <button className="button secondary" onClick={() => onImage('image/png')}>
+          <FileImage /> PNG
+        </button>
+        <button className="button secondary" onClick={() => onImage('image/jpeg')}>
+          <FileImage /> JPEG
+        </button>
+      </div>
+      <p>PNG and JPEG contain only the current photo.</p>
+      <button className="button quiet" autoFocus onClick={onClose}>
+        Cancel
+      </button>
+    </dialog>
   )
 }
 

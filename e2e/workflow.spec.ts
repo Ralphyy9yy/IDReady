@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+﻿import { test, expect, type Page } from '@playwright/test'
 
 test('crash recovery restores unsaved edits and confirms discard', async ({ page }) => {
   page.on('dialog', (dialog) => void dialog.accept())
@@ -131,6 +131,23 @@ test('export toolbar never overlaps scrollable controls and final buttons are re
   }
 })
 
+test('one download button offers a printable sheet and single-photo formats', async ({ page }) => {
+  await page.goto('/')
+  await importPhoto(page)
+  await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
+  await expect(page.getByRole('button', { name: 'Download', exact: true })).toHaveCount(1)
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Choose a download' })
+  await expect(dialog.getByText('PDF includes all photos and copies on the sheet.')).toBeVisible()
+  await expect(dialog.getByText('PNG and JPEG contain only the current photo.')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
+  const jpeg = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'JPEG', exact: true }).click()
+  expect((await jpeg).suggestedFilename()).toMatch(/\.jpg$/)
+})
+
 test('complete sheet drafts restore every editable photo after reload', async ({ page }) => {
   page.on(
     'dialog',
@@ -181,6 +198,7 @@ test('complete sheet drafts restore every editable photo after reload', async ({
   await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
   await expect(page.locator('.sheet-photo')).toHaveCount(6)
   const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
   await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
 })
@@ -367,6 +385,7 @@ test('mobile background removal and touch cleanup work without OffscreenCanvas',
     await expect(page.locator('.app-notice')).toContainText('Cleanup applied')
     await page.getByRole('button', { name: 'Continue to export', exact: false }).tap()
     const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download', exact: true }).tap()
     await page.getByRole('button', { name: 'Download PDF', exact: true }).tap()
     expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
   } finally {
@@ -487,6 +506,7 @@ test('combines edited photos into one sheet and downloads a PDF', async ({ page 
   await page.getByLabel('Photo 2 copies', { exact: true }).fill('2')
   await expect(page.locator('.sheet-photo')).toHaveCount(5)
   const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
   await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
   await page.getByRole('button', { name: 'Photos', exact: true }).click()
@@ -890,7 +910,7 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
     ).toBe(true)
     await page.screenshot({ path: testInfo.outputPath(`export-${width}.png`) })
   }
-  await page.getByRole('button', { name: 'Formats', exact: true }).click()
+  await page.getByRole('button', { name: 'Print info', exact: true }).click()
   await page.getByRole('button', { name: 'View photo up close', exact: true }).click()
   const inspector = page.getByRole('dialog', { name: 'Inspect final photo', exact: true })
   await expect(inspector).toBeVisible()
@@ -914,7 +934,7 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
   await expect(inspector).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(inspector).toHaveCount(0)
-  await page.getByRole('button', { name: 'Formats', exact: true }).click()
+  await page.getByRole('button', { name: 'Print info', exact: true }).click()
   await expect(page.locator('.final-review-summary')).toContainText('Included')
   for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: 900 })
@@ -936,7 +956,7 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
     await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('3r')
     await page.getByRole('button', { name: 'Paper settings', exact: true }).click()
     await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption(orientation)
-    await page.getByRole('button', { name: 'Formats', exact: true }).click()
+    await page.getByRole('button', { name: 'Print info', exact: true }).click()
     const nextCalibration = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download calibration PDF', exact: true }).click()
     await (await nextCalibration).saveAs(testInfo.outputPath(`calibration-3r-${orientation}.pdf`))
@@ -946,13 +966,15 @@ test('multiple drafts restore edits, custom dimensions, ASA pair, and PDF', asyn
   await page.getByRole('combobox', { name: 'Paper', exact: true }).selectOption('a4')
   await page.getByRole('button', { name: 'Paper settings', exact: true }).click()
   await page.getByRole('combobox', { name: 'Orientation', exact: true }).selectOption('portrait')
-  await page.getByRole('button', { name: 'Formats', exact: true }).click()
+  await page.getByRole('button', { name: 'Print info', exact: true }).click()
   const pngDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
   await page.getByRole('button', { name: 'PNG', exact: true }).click()
   expect((await pngDownload).suggestedFilename()).toBe('IDReady-asa.png')
   await page.getByRole('button', { name: 'Layout', exact: true }).click()
   await expect(page.getByLabel('Photo 1 copies', { exact: true })).toHaveValue('100')
   const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
   await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('IDReady-a4.pdf')
 })
@@ -1049,6 +1071,7 @@ test('production offline reload runs real segmentation in a worker and exports',
   await expect(page.locator('.app-notice')).toContainText('Cleanup applied')
   await page.getByRole('button', { name: 'Continue to export', exact: false }).click()
   const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
   await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('IDReady-a4.pdf')
   expect(remote).toEqual([])

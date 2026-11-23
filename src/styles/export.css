@@ -1,6 +1,34 @@
 .export-layout {
   padding-bottom: 8px;
 }
+.download-choices {
+  width: min(440px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: #17212f;
+}
+.download-choices::backdrop {
+  background: #101a30b8;
+}
+.download-choices h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.download-choices p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 10px 0 16px;
+}
+.download-choices .button-pair {
+  display: flex;
+  gap: 10px;
+}
+.download-choices .button-pair .button {
+  flex: 1;
+}
 .photo-inspector {
   width: min(960px, calc(100vw - 24px));
   max-height: calc(100dvh - 24px);
